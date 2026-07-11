@@ -132,7 +132,13 @@ def extract_and_parse_control(stream, pfs0_files, hactool_path, keys_path, cache
             if not true_title_id:
                 id_node = root.find("Id")
                 if id_node is not None:
-                    true_title_id = id_node.text.replace("0x", "").lower().strip()
+                    potential_id = id_node.text.replace("0x", "").lower().strip()
+                    try:
+                        int(potential_id, 16)
+                        if len(potential_id) == 16:
+                            true_title_id = potential_id
+                    except ValueError:
+                        pass
                 
             for content in root.findall(".//Content"):
                 type_node = content.find("Type")

@@ -1,5 +1,4 @@
 const express = require('express');
-const cors = require('cors');
 const fileUpload = require('express-fileupload');
 const path = require('path');
 const fs = require('fs');
@@ -45,6 +44,15 @@ const hasKeys = () => {
     return fs.existsSync(p) && fs.statSync(p).isFile() && fs.statSync(p).size > 0;
 };
 
+const resolvePythonCmd = () => {
+    let pythonCmd = PYTHON_PATH;
+    const customPython = 'C:\\Users\\dadde\\AppData\\Local\\Python\\bin\\python.exe';
+    if (process.platform === 'win32' && fs.existsSync(customPython)) {
+        pythonCmd = `"${customPython}"`;
+    }
+    return pythonCmd;
+};
+
 
 // Ensure folder structures exist
 if (!fs.existsSync(GAMES_DIR)) {
@@ -58,7 +66,6 @@ if (!fs.existsSync(tempUploadsDir)) {
     fs.mkdirSync(tempUploadsDir, { recursive: true });
 }
 
-app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -94,15 +101,7 @@ app.get('/api/games', (req, res) => {
 
 // API: Trigger scan
 app.post('/api/scan', (req, res) => {
-    // Determine python path. If local execution alias exists, we can use our custom path if configured,
-    // otherwise default to 'python' or 'python3'
-    let pythonCmd = PYTHON_PATH;
-    
-    // Check if custom python exists in the user's local path
-    const customPython = 'C:\\Users\\dadde\\AppData\\Local\\Python\\bin\\python.exe';
-    if (process.platform === 'win32' && fs.existsSync(customPython)) {
-        pythonCmd = `"${customPython}"`;
-    }
+    const pythonCmd = resolvePythonCmd();
 
     const scannerScript = path.join(__dirname, 'scanner_helper.py');
     const keysPath = getKeysPath();
@@ -178,16 +177,22 @@ app.delete('/api/games/:dbKey', (req, res) => {
             return res.status(404).json({ error: 'Game not found in database.' });
         }
         
-        // 1. Delete physical file if it exists
-        if (game.filePath && fs.existsSync(game.filePath)) {
-            fs.unlinkSync(game.filePath);
-            console.log(`Physically deleted file: ${game.filePath}`);
+        // 1. Delete physical file if it exists and lies inside GAMES_DIR (Security check)
+        if (game.filePath) {
+            const resolvedGamesDir = path.resolve(GAMES_DIR);
+            const resolvedFilePath = path.resolve(game.filePath);
+            if (resolvedFilePath.startsWith(resolvedGamesDir) && fs.existsSync(game.filePath)) {
+                fs.unlinkSync(game.filePath);
+                console.log(`Physically deleted file: ${game.filePath}`);
+            }
         }
         
-        // 2. Delete extracted icon if it exists
+        // 2. Delete extracted icon if it exists and lies inside public folder (Security check)
         if (game.icon) {
             const iconPath = path.join(__dirname, 'public', game.icon);
-            if (fs.existsSync(iconPath)) {
+            const resolvedPublicDir = path.resolve(path.join(__dirname, 'public'));
+            const resolvedIconPath = path.resolve(iconPath);
+            if (resolvedIconPath.startsWith(resolvedPublicDir) && fs.existsSync(iconPath)) {
                 fs.unlinkSync(iconPath);
                 console.log(`Deleted cached icon: ${iconPath}`);
             }
@@ -211,7 +216,21 @@ app.post('/api/upload', (req, res) => {
         return res.status(400).json({ error: 'Dateiname fehlt im Query-Parameter (?name=...)' });
     }
 
-    const destPath = path.join(GAMES_DIR, fileName);
+    // Security: sanitize filename and restrict file extensions
+    const safeName = path.basename(fileName);
+    if (!/\.(nsp|nsz|xci|zip)$/i.test(safeName)) {
+        return res.status(400).json({ error: 'Nur .nsp, .nsz, .xci oder .zip erlaubt.' });
+    }
+
+    const destPath = path.join(GAMES_DIR, safeName);
+    
+    // Security: verify that destPath resolves inside GAMES_DIR (prevent path traversal)
+    const resolvedGamesDir = path.resolve(GAMES_DIR);
+    const resolvedDestPath = path.resolve(destPath);
+    if (!resolvedDestPath.startsWith(resolvedGamesDir)) {
+        return res.status(400).json({ error: 'Ungültiger Dateipfad.' });
+    }
+
     console.log(`Piping upload stream to: ${destPath}`);
 
     const writeStream = fs.createWriteStream(destPath);
@@ -234,11 +253,7 @@ app.post('/api/upload', (req, res) => {
         console.log(`Upload completed. Triggering automatic scan...`);
 
         // Trigger scan automatically
-        let pythonCmd = PYTHON_PATH;
-        const customPython = 'C:\\Users\\dadde\\AppData\\Local\\Python\\bin\\python.exe';
-        if (process.platform === 'win32' && fs.existsSync(customPython)) {
-            pythonCmd = `"${customPython}"`;
-        }
+        const pythonCmd = resolvePythonCmd();
         const scannerScript = path.join(__dirname, 'scanner_helper.py');
         const keysPath = getKeysPath();
         const cmd = `${pythonCmd} "${scannerScript}" "${GAMES_DIR}" "${HACTOOL_PATH}" "${keysPath}" "${CACHE_DIR}" "${DB_PATH}"`;
@@ -246,9 +261,9 @@ app.post('/api/upload', (req, res) => {
         exec(cmd, (scanErr, stdout, stderr) => {
             if (scanErr) {
                 console.error(`Auto-scan error: ${scanErr.message}`);
-                return res.json({ message: 'Upload abgeschlossen, aber automatischer Scan fehlgeschlagen.', file: fileName });
+                return res.json({ message: 'Upload abgeschlossen, aber automatischer Scan fehlgeschlagen.', file: safeName });
             }
-            res.json({ message: 'Upload und Scan erfolgreich abgeschlossen.', file: fileName });
+            res.json({ message: 'Upload und Scan erfolgreich abgeschlossen.', file: safeName });
         });
     });
 });
