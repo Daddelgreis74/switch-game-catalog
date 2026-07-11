@@ -53,7 +53,7 @@ if (!fs.existsSync(GAMES_DIR)) {
 if (!fs.existsSync(CACHE_DIR)) {
     fs.mkdirSync(CACHE_DIR, { recursive: true });
 }
-const tempUploadsDir = path.join(__dirname, 'temp_uploads');
+const tempUploadsDir = path.join(GAMES_DIR, '.temp_uploads');
 if (!fs.existsSync(tempUploadsDir)) {
     fs.mkdirSync(tempUploadsDir, { recursive: true });
 }
@@ -274,7 +274,7 @@ app.post('/api/upload-keys', (req, res) => {
     });
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
     console.log(`==================================================`);
     console.log(` Nintendo Switch Game Catalog Server is running!`);
     console.log(` URL: http://localhost:${PORT}`);
@@ -282,3 +282,8 @@ app.listen(PORT, () => {
     console.log(` Keys Path: ${KEYS_PATH}`);
     console.log(`==================================================`);
 });
+
+// Disable timeout limits for large file uploads (40 GB+)
+server.timeout = 0; 
+server.keepAliveTimeout = 600000; // 10 minutes keep-alive
+server.headersTimeout = 605000; // keep-alive + 5s

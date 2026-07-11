@@ -362,6 +362,8 @@ def main():
     
     # Simple recursive directory walk
     for root, dirs, files in os.walk(games_dir):
+        # Skip hidden directories and temp upload folders
+        dirs[:] = [d for d in dirs if not d.startswith('.') and not d.startswith('temp_')]
         for file in files:
             file_path = os.path.join(root, file)
             ext = os.path.splitext(file)[1].lower()
