@@ -15,6 +15,37 @@ const CACHE_DIR = path.join(__dirname, 'public', 'cache');
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'games_db.json');
 const PYTHON_PATH = process.platform === 'win32' ? 'python' : 'python3'; // On Windows, we'll try standard python, or it can be configured
 
+const getKeysPath = () => {
+    // 1. Check if KEYS_PATH is a direct file with content
+    if (fs.existsSync(KEYS_PATH) && fs.statSync(KEYS_PATH).isFile() && fs.statSync(KEYS_PATH).size > 0) {
+        return KEYS_PATH;
+    }
+    // 2. Check if a directory is mounted to KEYS_PATH and contains prod.keys
+    const configKeysFile = path.join(KEYS_PATH, 'prod.keys');
+    if (fs.existsSync(configKeysFile) && fs.statSync(configKeysFile).isFile() && fs.statSync(configKeysFile).size > 0) {
+        return configKeysFile;
+    }
+    // 3. Check inside the database directory
+    const dbDir = path.dirname(DB_PATH);
+    const dbKeysFile = path.join(dbDir, 'prod.keys');
+    if (fs.existsSync(dbKeysFile) && fs.statSync(dbKeysFile).isFile() && fs.statSync(dbKeysFile).size > 0) {
+        return dbKeysFile;
+    }
+    // 4. Check local app directory
+    const localKeysFile = path.join(__dirname, 'prod.keys');
+    if (fs.existsSync(localKeysFile) && fs.statSync(localKeysFile).isFile() && fs.statSync(localKeysFile).size > 0) {
+        return localKeysFile;
+    }
+    // Fallback: Return a writable path where we will save the keys (in database directory)
+    return dbKeysFile; 
+};
+
+const hasKeys = () => {
+    const p = getKeysPath();
+    return fs.existsSync(p) && fs.statSync(p).isFile() && fs.statSync(p).size > 0;
+};
+
+
 // Ensure folder structures exist
 if (!fs.existsSync(GAMES_DIR)) {
     fs.mkdirSync(GAMES_DIR, { recursive: true });
@@ -41,6 +72,10 @@ app.use(fileUpload({
 
 // API: Get games list
 app.get('/api/games', (req, res) => {
+    if (!hasKeys()) {
+        return res.json({ keysMissing: true });
+    }
+
     if (fs.existsSync(DB_PATH)) {
         fs.readFile(DB_PATH, 'utf8', (err, data) => {
             if (err) {
@@ -70,7 +105,8 @@ app.post('/api/scan', (req, res) => {
     }
 
     const scannerScript = path.join(__dirname, 'scanner_helper.py');
-    const cmd = `${pythonCmd} "${scannerScript}" "${GAMES_DIR}" "${HACTOOL_PATH}" "${KEYS_PATH}" "${CACHE_DIR}" "${DB_PATH}"`;
+    const keysPath = getKeysPath();
+    const cmd = `${pythonCmd} "${scannerScript}" "${GAMES_DIR}" "${HACTOOL_PATH}" "${keysPath}" "${CACHE_DIR}" "${DB_PATH}"`;
 
     console.log(`Running scan command: ${cmd}`);
     exec(cmd, (error, stdout, stderr) => {
@@ -194,7 +230,8 @@ app.post('/api/upload', (req, res) => {
             pythonCmd = `"${customPython}"`;
         }
         const scannerScript = path.join(__dirname, 'scanner_helper.py');
-        const cmd = `${pythonCmd} "${scannerScript}" "${GAMES_DIR}" "${HACTOOL_PATH}" "${KEYS_PATH}" "${CACHE_DIR}" "${DB_PATH}"`;
+        const keysPath = getKeysPath();
+        const cmd = `${pythonCmd} "${scannerScript}" "${GAMES_DIR}" "${HACTOOL_PATH}" "${keysPath}" "${CACHE_DIR}" "${DB_PATH}"`;
         
         exec(cmd, (scanErr, stdout, stderr) => {
             if (scanErr) {
@@ -204,6 +241,36 @@ app.post('/api/upload', (req, res) => {
             }
             res.json({ message: 'File uploaded and scanned successfully.', file: gameFile.name });
         });
+    });
+});
+
+// API: Upload prod.keys
+app.post('/api/upload-keys', (req, res) => {
+    if (!req.files || Object.keys(req.files).length === 0) {
+        return res.status(400).json({ error: 'No keys file was uploaded.' });
+    }
+
+    const keysFile = req.files.keysFile;
+    
+    if (keysFile.name !== 'prod.keys' && keysFile.name !== 'keys.txt') {
+        return res.status(400).json({ error: 'Die Datei muss "prod.keys" heißen.' });
+    }
+
+    const destPath = getKeysPath();
+    const destDir = path.dirname(destPath);
+    
+    if (!fs.existsSync(destDir)) {
+        fs.mkdirSync(destDir, { recursive: true });
+    }
+
+    console.log(`Saving uploaded keys to: ${destPath}`);
+    
+    keysFile.mv(destPath, (err) => {
+        if (err) {
+            console.error(`Keys upload error: ${err}`);
+            return res.status(500).json({ error: 'Fehler beim Speichern der Keys.' });
+        }
+        res.json({ message: 'Keys erfolgreich hochgeladen!' });
     });
 });
 
