@@ -43,6 +43,13 @@ const modalLanguages = document.getElementById('modal-languages');
 const modalDownloadBtn = document.getElementById('modal-download-btn');
 const modalDeleteBtn = document.getElementById('modal-delete-btn');
 
+// Keys Upload Elements
+const keysOverlay = document.getElementById('keys-overlay');
+const keysDropZone = document.getElementById('keys-drop-zone');
+const keysFileInput = document.getElementById('keys-file-input');
+const keysUploadStatus = document.getElementById('keys-upload-status');
+
+
 // API Endpoints
 const API_GAMES = '/api/games';
 const API_SCAN = '/api/scan';
@@ -53,6 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchGames();
     setupEventListeners();
     setupUploadEvents();
+    setupKeysUploadEvents();
 });
 
 // Event Listeners
@@ -84,7 +92,16 @@ async function fetchGames() {
     try {
         const response = await fetch(API_GAMES);
         if (!response.ok) throw new Error('Failed to fetch library.');
-        gamesData = await response.json();
+        const result = await response.json();
+        
+        if (result.keysMissing) {
+            showKeysOverlay(true);
+            showLoading(false);
+            return;
+        }
+        
+        showKeysOverlay(false);
+        gamesData = result;
         updateStats();
         applyFiltersAndSort();
     } catch (error) {
@@ -435,4 +452,82 @@ function translateLanguage(lang) {
         "SimplifiedChinese": "Chinesisch (Vereinfacht)"
     };
     return translations[lang] || lang;
+}
+
+function showKeysOverlay(show) {
+    if (show) {
+        keysOverlay.classList.remove('hidden');
+    } else {
+        keysOverlay.classList.add('hidden');
+    }
+}
+
+function setupKeysUploadEvents() {
+    // Click on drop zone triggers file input
+    keysDropZone.addEventListener('click', () => {
+        keysFileInput.click();
+    });
+
+    // Drag events
+    ['dragenter', 'dragover'].forEach(eventName => {
+        keysDropZone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            keysDropZone.style.borderColor = 'var(--neon-red)';
+            keysDropZone.style.background = 'rgba(255, 60, 95, 0.08)';
+        }, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        keysDropZone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            keysDropZone.style.borderColor = 'rgba(255, 60, 95, 0.3)';
+            keysDropZone.style.background = 'rgba(255, 60, 95, 0.02)';
+        }, false);
+    });
+
+    // Drop
+    keysDropZone.addEventListener('drop', (e) => {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        if (files.length > 0) {
+            handleKeysUpload(files[0]);
+        }
+    });
+
+    // File Input change
+    keysFileInput.addEventListener('change', () => {
+        if (keysFileInput.files.length > 0) {
+            handleKeysUpload(keysFileInput.files[0]);
+        }
+    });
+}
+
+function handleKeysUpload(file) {
+    if (file.name !== 'prod.keys' && file.name !== 'keys.txt') {
+        keysUploadStatus.innerHTML = '<span style="color: var(--neon-red)"><i class="fa-solid fa-triangle-exclamation"></i> Fehler: Datei muss "prod.keys" heißen!</span>';
+        return;
+    }
+
+    keysUploadStatus.innerHTML = '<i class="fa-solid fa-arrows-rotate fa-spin"></i> Lade Keys hoch...';
+
+    const formData = new FormData();
+    formData.append('keysFile', file);
+
+    fetch('/api/upload-keys', {
+        method: 'POST',
+        body: formData
+    })
+    .then(async response => {
+        const res = await response.json();
+        if (!response.ok) throw new Error(res.error || 'Upload failed');
+        
+        keysUploadStatus.innerHTML = '<span style="color: #2ec4b6"><i class="fa-solid fa-circle-check"></i> Keys geladen! Starte Scan...</span>';
+        setTimeout(() => {
+            fetchGames(); // Reload library, which will trigger scan and hide overlay
+        }, 1500);
+    })
+    .catch(error => {
+        console.error(error);
+        keysUploadStatus.innerHTML = `<span style="color: var(--neon-red)"><i class="fa-solid fa-triangle-exclamation"></i> ${error.message}</span>`;
+    });
 }

@@ -168,6 +168,29 @@
         </div>
     </div>
 
+    <!-- Keys Upload Modal Overlay -->
+    <div id="keys-overlay" class="modal-backdrop hidden" style="z-index: 2000;">
+        <div class="modal-content" style="max-width: 500px; text-align: center; border: 1.5px solid var(--neon-red); box-shadow: 0 0 30px rgba(255, 60, 95, 0.3);">
+            <div class="modal-header" style="justify-content: center; border-bottom: 1px solid rgba(255, 60, 95, 0.2);">
+                <h2 style="color: var(--neon-red); margin: 0; display: inline-flex; align-items: center; gap: 10px;"><i class="fa-solid fa-key"></i> Konsolenschlüssel fehlen</h2>
+            </div>
+            <div class="modal-body" style="padding: 20px 0;">
+                <p style="margin-bottom: 20px; line-height: 1.6; color: var(--text-main);">
+                    Um die Metadaten deiner Spiele entschlüsseln zu können, benötigt dieser Server deine <strong>prod.keys</strong>.
+                </p>
+                <div class="drop-zone" id="keys-drop-zone" style="height: 180px; border: 2px dashed rgba(255, 60, 95, 0.3); background: rgba(255, 60, 95, 0.02);">
+                    <div class="drop-zone-content">
+                        <i class="fa-solid fa-cloud-arrow-up" style="color: var(--neon-red); font-size: 2.5rem; margin-bottom: 15px;"></i>
+                        <p>Zieh deine <strong>prod.keys</strong> hierher</p>
+                        <span style="font-size: 0.8rem; color: var(--text-muted);">oder klicke zum Auswählen</span>
+                    </div>
+                    <input type="file" id="keys-file-input" accept=".keys,*" style="display: none;">
+                </div>
+                <div id="keys-upload-status" style="margin-top: 15px; font-size: 0.9rem; font-family: var(--font-display);"></div>
+            </div>
+        </div>
+    </div>
+
     <script src="js/app.js"></script>
 </body>
 </html>
