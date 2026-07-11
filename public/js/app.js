@@ -312,7 +312,10 @@ async function triggerScan() {
     }
 }
 
-// Drag and Drop & Upload Handling
+// Drag and Drop & Upload Queue Handling
+let uploadQueue = [];
+let isUploading = false;
+
 function setupUploadEvents() {
     // Drag Over
     ['dragenter', 'dragover'].forEach(eventName => {
@@ -335,26 +338,56 @@ function setupUploadEvents() {
         const dt = e.dataTransfer;
         const files = dt.files;
         if (files.length > 0) {
-            handleFileUpload(files[0]);
+            queueFilesForUpload(files);
         }
     });
 
     // Input Change
     fileInput.addEventListener('change', () => {
         if (fileInput.files.length > 0) {
-            handleFileUpload(fileInput.files[0]);
+            queueFilesForUpload(fileInput.files);
         }
     });
 }
 
-// AJAX Upload with Progress (Stream-based raw upload)
-function handleFileUpload(file) {
+function queueFilesForUpload(filesList) {
+    for (let i = 0; i < filesList.length; i++) {
+        uploadQueue.push(filesList[i]);
+    }
+    processUploadQueue();
+}
+
+function processUploadQueue() {
+    if (isUploading) return;
+    if (uploadQueue.length === 0) {
+        // Queue empty, wait 3s before hiding the bar to let user see "100%"
+        setTimeout(() => {
+            if (uploadQueue.length === 0 && !isUploading) {
+                uploadProgressContainer.classList.add('hidden');
+            }
+        }, 3000);
+        return;
+    }
+
+    const file = uploadQueue.shift();
+    isUploading = true;
+    
     uploadProgressContainer.classList.remove('hidden');
-    uploadFilename.textContent = file.name;
+    const remainingText = uploadQueue.length > 0 ? ` (Noch ${uploadQueue.length} in der Warteschlange)` : '';
+    uploadFilename.textContent = file.name + remainingText;
     uploadPercent.textContent = '0%';
     progressBarFill.style.width = '0%';
     uploadStatus.textContent = 'Bereite Upload vor...';
 
+    handleFileUpload(file, () => {
+        isUploading = false;
+        // Small delay between uploads
+        setTimeout(processUploadQueue, 500);
+    });
+}
+
+// AJAX Upload with Progress (Stream-based raw upload)
+function handleFileUpload(file, callback) {
     const xhr = new XMLHttpRequest();
 
     // Track Progress
@@ -376,22 +409,32 @@ function handleFileUpload(file) {
             progressBarFill.style.width = '100%';
             uploadPercent.textContent = '100%';
             uploadStatus.textContent = 'Upload erfolgreich! Auto-Scan läuft...';
+            
+            // Reload database
+            fetchGames(); 
+            
             setTimeout(() => {
-                uploadProgressContainer.classList.add('hidden');
-                fetchGames(); // Reload database
+                if (callback) callback();
             }, 3000);
         } else {
-            let errorMsg = 'Upload fehlgeschlagen';
+            let errorMsg = 'Upload failed';
             try {
                 const res = JSON.parse(xhr.responseText);
                 if (res.error) errorMsg = res.error;
             } catch(e) {}
             uploadStatus.innerHTML = `<span style="color: var(--neon-red)"><i class="fa-solid fa-triangle-exclamation"></i> Fehler: ${errorMsg}</span>`;
+            
+            setTimeout(() => {
+                if (callback) callback();
+            }, 3000);
         }
     });
 
     xhr.addEventListener('error', () => {
         uploadStatus.innerHTML = '<span style="color: var(--neon-red)"><i class="fa-solid fa-triangle-exclamation"></i> Netzwerkfehler beim Upload</span>';
+        setTimeout(() => {
+            if (callback) callback();
+        }, 3000);
     });
 
     // Send filename as query parameter and the raw file as request body

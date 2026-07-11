@@ -57,8 +57,8 @@
                 <i class="fa-solid fa-cloud-arrow-up upload-icon"></i>
                 <h3>Spiele hochladen</h3>
                 <p>Ziehe deine Spieldateien (`.nsp`, `.nsz`, `.zip`, `.xci`) hierher oder klicke zum Durchsuchen</p>
-                <input type="file" id="file-input" accept=".nsp,.nsz,.zip,.xci" style="display: none;">
-                <button class="btn btn-secondary select-file-btn" onclick="document.getElementById('file-input').click()">Datei auswählen</button>
+                <input type="file" id="file-input" accept=".nsp,.nsz,.zip,.xci" multiple style="display: none;">
+                <button class="btn btn-secondary select-file-btn" onclick="document.getElementById('file-input').click()">Dateien auswählen</button>
             </div>
             
             <div class="upload-progress-container hidden" id="upload-progress-container">
