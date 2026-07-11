@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  switch-library:
+    build: .
+    container_name: switch-game-catalog
+    ports:
+      - "3000:3000"
+    volumes:
+      # Mount your Nintendo Switch games folder
+      - D:\NintendoGames:/games
+      # Mount folder containing prod.keys
+      - D:\:/config:ro
+      # Persist database cache
+      - ./games_db.json:/app/games_db.json
+      # Persist extracted icons
+      - ./public/cache:/app/public/cache
+    environment:
+      - PORT=3000
+      - GAMES_DIR=/games
+      - KEYS_PATH=/config/prod.keys
+    restart: unless-stopped

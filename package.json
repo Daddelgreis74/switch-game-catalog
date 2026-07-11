@@ -1,0 +1,25 @@
+{
+  "name": "switch-game-catalog",
+  "version": "1.0.0",
+  "description": "Nintendo Switch Game Catalog and Server",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "nintendo",
+    "switch",
+    "catalog",
+    "server"
+  ],
+  "author": "Antigravity",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-fileupload": "^1.5.0",
+    "adm-zip": "^0.5.12"
+  }
+}

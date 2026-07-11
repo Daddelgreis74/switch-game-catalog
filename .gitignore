@@ -1,0 +1,25 @@
+# Node dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Local environment configuration
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Database and file caches
+games_db.json
+public/cache/*
+!public/cache/.gitkeep
+temp_uploads/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Executables (Windows build can be downloaded from releases, Docker builds from source)
+bin/hactool.exe

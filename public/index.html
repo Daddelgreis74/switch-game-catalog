@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nintendo Switch Game Library</title>
+    <!-- Google Fonts: Outfit & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Inter:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar or top navigation -->
+        <header class="main-header">
+            <div class="logo-area">
+                <div class="switch-logo-wrapper">
+                    <span class="left-joycon"></span>
+                    <span class="right-joycon"></span>
+                </div>
+                <h1>Switch <span>Library</span></h1>
+            </div>
+            
+            <div class="stats-bar">
+                <div class="stat-card">
+                    <i class="fa-solid fa-gamepad icon-neon-blue"></i>
+                    <div>
+                        <span class="stat-value" id="stat-count">0</span>
+                        <span class="stat-label">Spiele</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <i class="fa-solid fa-hard-drive icon-neon-red"></i>
+                    <div>
+                        <span class="stat-value" id="stat-size">0 GB</span>
+                        <span class="stat-label">Gesamtgröße</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="header-actions">
+                <button class="btn btn-secondary" id="toggle-upload-btn">
+                    <i class="fa-solid fa-cloud-arrow-up"></i> Upload
+                </button>
+                <button class="btn btn-primary" id="scan-btn">
+                    <i class="fa-solid fa-arrows-rotate"></i> Bibliothek scannen
+                </button>
+            </div>
+        </header>
+
+        <!-- Collapsible Upload Panel -->
+        <section class="upload-panel collapsed" id="upload-panel">
+            <div class="upload-zone" id="drop-zone">
+                <i class="fa-solid fa-cloud-arrow-up upload-icon"></i>
+                <h3>Spiele hochladen</h3>
+                <p>Ziehe deine Spieldateien (`.nsp`, `.nsz`, `.zip`, `.xci`) hierher oder klicke zum Durchsuchen</p>
+                <input type="file" id="file-input" accept=".nsp,.nsz,.zip,.xci" style="display: none;">
+                <button class="btn btn-secondary select-file-btn" onclick="document.getElementById('file-input').click()">Datei auswählen</button>
+            </div>
+            
+            <div class="upload-progress-container hidden" id="upload-progress-container">
+                <div class="upload-file-info">
+                    <span id="upload-filename">game.nsz</span>
+                    <span id="upload-percent">0%</span>
+                </div>
+                <div class="progress-bar-wrapper">
+                    <div class="progress-bar-fill" id="progress-bar-fill"></div>
+                </div>
+                <div class="upload-status" id="upload-status">Hochladen...</div>
+            </div>
+        </section>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Filter and search bar -->
+            <div class="filter-bar">
+                <div class="search-box">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="text" id="search-input" placeholder="Suche nach Spielname oder Title ID...">
+                </div>
+
+                <div class="filters">
+                    <div class="filter-group">
+                        <label for="type-filter"><i class="fa-solid fa-filter"></i> Typ:</label>
+                        <select id="type-filter">
+                            <option value="all">Alle Typen</option>
+                            <option value="Base Game">Hauptspiele</option>
+                            <option value="Update">Updates</option>
+                            <option value="DLC">DLCs</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="sort-select"><i class="fa-solid fa-sort"></i> Sortierung:</label>
+                        <select id="sort-select">
+                            <option value="title-asc">Name (A-Z)</option>
+                            <option value="title-desc">Name (Z-A)</option>
+                            <option value="size-desc">Größe (Absteigend)</option>
+                            <option value="size-asc">Größe (Aufsteigend)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Games Grid -->
+            <div class="games-grid" id="games-grid">
+                <!-- Placeholder / Loading indicator -->
+                <div class="loading-state" id="loading-state">
+                    <div class="spinner"></div>
+                    <p>Lade Spiele-Bibliothek...</p>
+                </div>
+                <div class="empty-state hidden" id="empty-state">
+                    <i class="fa-solid fa-box-open"></i>
+                    <h3>Keine Spiele gefunden</h3>
+                    <p>Füge Spieldateien in `D:\NintendoGames` hinzu und klicke auf "Bibliothek scannen".</p>
+                </div>
+            </div>
+        </main>
+
+        <!-- Game Details Modal -->
+        <div class="modal hidden" id="details-modal">
+            <div class="modal-backdrop" id="modal-backdrop"></div>
+            <div class="modal-content">
+                <button class="modal-close-btn" id="modal-close"><i class="fa-solid fa-xmark"></i></button>
+                <div class="modal-header">
+                    <img id="modal-icon" src="images/fallback_icon.png" alt="Game Icon" class="modal-icon">
+                    <div class="modal-title-area">
+                        <span class="badge" id="modal-type">Base Game</span>
+                        <h2 id="modal-title">Super Mario Odyssey</h2>
+                        <p id="modal-publisher">Nintendo</p>
+                    </div>
+                </div>
+                <div class="modal-body">
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <span class="info-label">Title ID</span>
+                            <span class="info-value code" id="modal-title-id">0100000000010000</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">Dateigröße</span>
+                            <span class="info-value" id="modal-size">5.7 GB</span>
+                        </div>
+                        <div class="info-item full-width">
+                            <span class="info-label">Dateipfad</span>
+                            <span class="info-value code" id="modal-filepath">D:\NintendoGames\Mario.zip</span>
+                        </div>
+                        <div class="info-item full-width" id="modal-nested-item">
+                            <span class="info-label">Pfad in ZIP</span>
+                            <span class="info-value code" id="modal-nestedpath">-</span>
+                        </div>
+                    </div>
+                    
+                    <div class="languages-section">
+                        <h3>Unterstützte Sprachen</h3>
+                        <div class="languages-tags" id="modal-languages">
+                            <!-- Tags will be injected here -->
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-danger" id="modal-delete-btn" style="margin-right: auto;"><i class="fa-solid fa-trash-can"></i> Spiel löschen</button>
+                    <a href="#" class="btn btn-primary" id="modal-download-btn" download><i class="fa-solid fa-download"></i> Spiel herunterladen</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
