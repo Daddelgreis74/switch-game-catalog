@@ -131,43 +131,101 @@ function updateStats() {
     statSize.textContent = `${totalGB} GB`;
 }
 
+// Helper to group games by their Base Title ID
+function groupGames(flatGames) {
+    const groups = {};
+    
+    flatGames.forEach(game => {
+        const baseTitleId = game.titleId.substring(0, 13) + '000';
+        
+        if (!groups[baseTitleId]) {
+            groups[baseTitleId] = {
+                base: null,
+                updates: [],
+                dlcs: [],
+                any: game
+            };
+        }
+        
+        if (game.type === 'Base') {
+            groups[baseTitleId].base = game;
+        } else if (game.type === 'Update') {
+            groups[baseTitleId].updates.push(game);
+        } else if (game.type === 'DLC') {
+            groups[baseTitleId].dlcs.push(game);
+        }
+    });
+    
+    const grouped = [];
+    Object.entries(groups).forEach(([baseTitleId, group]) => {
+        const main = group.base ? { ...group.base } : { ...group.any };
+        
+        main.allFiles = [];
+        if (group.base) main.allFiles.push(group.base);
+        group.updates.forEach(u => main.allFiles.push(u));
+        group.dlcs.forEach(d => main.allFiles.push(d));
+        
+        main.updatesCount = group.updates.length;
+        main.dlcsCount = group.dlcs.length;
+        main.hasBaseGame = !!group.base;
+        
+        grouped.push(main);
+    });
+    
+    return grouped;
+}
+
 // Apply Search, Filter, and Sort to local data
 function applyFiltersAndSort() {
     const searchVal = searchInput.value.toLowerCase().trim();
     const typeVal = typeFilter.value;
     const sortVal = sortSelect.value;
 
-    filteredGames = Object.entries(gamesData).map(([key, value]) => ({ dbKey: key, ...value }));
+    let flatList = Object.entries(gamesData).map(([key, value]) => ({ dbKey: key, ...value }));
+    let groupedList = groupGames(flatList);
 
     // Filter by type
     if (typeVal !== 'all') {
-        filteredGames = filteredGames.filter(game => game.type === typeVal);
+        if (typeVal === 'Base') {
+            groupedList = groupedList.filter(g => g.hasBaseGame);
+        } else if (typeVal === 'Update') {
+            groupedList = groupedList.filter(g => g.updatesCount > 0);
+        } else if (typeVal === 'DLC') {
+            groupedList = groupedList.filter(g => g.dlcsCount > 0);
+        }
     }
 
     // Filter by search
     if (searchVal) {
-        filteredGames = filteredGames.filter(game => 
-            game.title.toLowerCase().includes(searchVal) || 
-            game.titleId.toLowerCase().includes(searchVal) || 
-            (game.publisher && game.publisher.toLowerCase().includes(searchVal)) ||
-            (game.fileName && game.fileName.toLowerCase().includes(searchVal))
-        );
+        groupedList = groupedList.filter(game => {
+            const matchesMain = game.title.toLowerCase().includes(searchVal) || 
+                                game.titleId.toLowerCase().includes(searchVal) || 
+                                (game.publisher && game.publisher.toLowerCase().includes(searchVal));
+            
+            if (matchesMain) return true;
+            return game.allFiles.some(f => f.fileName && f.fileName.toLowerCase().includes(searchVal));
+        });
     }
 
     // Sort
-    filteredGames.sort((a, b) => {
+    groupedList.sort((a, b) => {
         if (sortVal === 'title-asc') {
             return a.title.localeCompare(b.title);
         } else if (sortVal === 'title-desc') {
             return b.title.localeCompare(a.title);
         } else if (sortVal === 'size-desc') {
-            return (b.fileSize || 0) - (a.fileSize || 0);
+            const sizeA = a.allFiles.reduce((sum, f) => sum + (f.fileSize || 0), 0);
+            const sizeB = b.allFiles.reduce((sum, f) => sum + (f.fileSize || 0), 0);
+            return sizeB - sizeA;
         } else if (sortVal === 'size-asc') {
-            return (a.fileSize || 0) - (b.fileSize || 0);
+            const sizeA = a.allFiles.reduce((sum, f) => sum + (f.fileSize || 0), 0);
+            const sizeB = b.allFiles.reduce((sum, f) => sum + (f.fileSize || 0), 0);
+            return sizeA - sizeB;
         }
         return 0;
     });
 
+    filteredGames = groupedList;
     renderGames();
 }
 
@@ -185,46 +243,49 @@ function renderGames() {
     
     filteredGames.forEach(game => {
         const card = document.createElement('div');
-        const sizeGB = ((game.fileSize || 0) / (1024 * 1024 * 1024)).toFixed(1);
+        const totalSize = game.allFiles.reduce((sum, f) => sum + (f.fileSize || 0), 0);
+        const sizeGB = (totalSize / (1024 * 1024 * 1024)).toFixed(1);
         
-        // Setup card classes based on type for custom glows
         let typeClass = 'type-base';
-        let badgeClass = 'badge-base';
-        if (game.type === 'Update') {
-            typeClass = 'type-update';
-            badgeClass = 'badge-update';
-        } else if (game.type === 'DLC') {
-            typeClass = 'type-dlc';
-            badgeClass = 'badge-dlc';
+        if (!game.hasBaseGame) {
+            typeClass = game.updatesCount > 0 ? 'type-update' : 'type-dlc';
         }
 
         card.className = `game-card ${typeClass}`;
         
-        // Use extracted cache icon or fallback
         const iconSrc = game.icon ? game.icon : 'images/fallback_icon.png';
         
+        let badgesHtml = '';
+        if (game.hasBaseGame) {
+            badgesHtml += `<span class="badge badge-base">Base Game</span>`;
+        }
+        if (game.updatesCount > 0) {
+            badgesHtml += `<span class="badge badge-update">Update</span>`;
+        }
+        if (game.dlcsCount > 0) {
+            badgesHtml += `<span class="badge badge-dlc">+ ${game.dlcsCount} DLC</span>`;
+        }
+
         card.innerHTML = `
             <div class="card-image-wrapper">
                 <img src="${iconSrc}" alt="${game.title}" onerror="this.src='https://raw.githubusercontent.com/blawar/titledb/master/images/0100152000022000.png'">
             </div>
             <div class="card-content">
-                <div class="card-header-row">
-                    <span class="badge ${badgeClass}">${game.type || 'Game'}</span>
+                <div class="card-header-row" style="display: flex; gap: 6px; flex-wrap: wrap;">
+                    ${badgesHtml}
                 </div>
                 <h3 class="game-title" title="${game.title}">${game.title}</h3>
                 <span class="game-publisher">${game.publisher || 'Nintendo'}</span>
                 <div class="game-meta-info">
                     <span><i class="fa-solid fa-file-zipper"></i> ${sizeGB} GB</span>
-                    <span class="code" style="font-size: 0.75rem;">${game.titleId}</span>
+                    <span class="code" style="font-size: 0.75rem;">${game.titleId.substring(0, 13) + '000'}</span>
                 </div>
             </div>
             <div class="card-actions">
-                <button class="btn btn-secondary card-details-btn"><i class="fa-solid fa-circle-info"></i> Details</button>
-                <a href="/api/download/${game.dbKey}" class="btn btn-primary card-download-btn"><i class="fa-solid fa-download"></i> Laden</a>
+                <button class="btn btn-secondary card-details-btn" style="width: 100%; justify-content: center;"><i class="fa-solid fa-circle-info"></i> Details & Dateien</button>
             </div>
         `;
         
-        // Bind events
         card.querySelector('.card-details-btn').addEventListener('click', () => showDetails(game));
         
         gamesGrid.appendChild(card);
@@ -353,8 +414,6 @@ function showLoading(show) {
 
 // Modal Details Dialog
 function showDetails(game) {
-    const sizeGB = ((game.fileSize || 0) / (1024 * 1024 * 1024)).toFixed(2);
-    
     // Icon
     modalIcon.src = game.icon ? game.icon : 'images/fallback_icon.png';
     modalIcon.onerror = function() {
@@ -362,32 +421,24 @@ function showDetails(game) {
     };
 
     // Badge styling based on type
-    modalType.textContent = game.type || 'Game';
+    modalType.textContent = game.hasBaseGame ? 'Base Game' : (game.updatesCount > 0 ? 'Update' : 'DLC');
     modalType.className = 'badge';
-    if (game.type === 'Update') {
-        modalType.classList.add('badge-update');
-    } else if (game.type === 'DLC') {
-        modalType.classList.add('badge-dlc');
-    } else {
+    if (game.hasBaseGame) {
         modalType.classList.add('badge-base');
+    } else if (game.updatesCount > 0) {
+        modalType.classList.add('badge-update');
+    } else {
+        modalType.classList.add('badge-dlc');
     }
 
     modalTitle.textContent = game.title;
     modalPublisher.textContent = game.publisher || 'Nintendo';
-    modalTitleId.textContent = game.titleId;
-    modalSize.textContent = `${sizeGB} GB`;
-    modalFilepath.textContent = game.filePath;
-
-    // Nested path (if zipped)
-    if (game.nestedPath) {
-        modalNestedItem.classList.remove('hidden');
-        modalNestedPath.textContent = game.nestedPath;
-    } else {
-        modalNestedItem.classList.add('hidden');
-    }
-
-    // Download Link
-    modalDownloadBtn.href = `/api/download/${game.dbKey}`;
+    modalTitleId.textContent = game.titleId.substring(0, 13) + '000'; // Show Base Title ID
+    
+    // Hide single file details from old layout (since we list them individually now)
+    modalSize.parentElement.style.display = 'none';
+    modalFilepath.parentElement.style.display = 'none';
+    modalNestedItem.style.display = 'none';
 
     // Languages Tags
     modalLanguages.innerHTML = '';
@@ -402,26 +453,51 @@ function showDetails(game) {
         modalLanguages.innerHTML = '<span class="text-muted">Keine Sprachen hinterlegt</span>';
     }
 
-    // Setup delete button handler (clone to reset old listeners)
-    const newDeleteBtn = modalDeleteBtn.cloneNode(true);
-    modalDeleteBtn.parentNode.replaceChild(newDeleteBtn, modalDeleteBtn);
-    
-    newDeleteBtn.addEventListener('click', async () => {
-        const confirmDelete = confirm(`Bist du sicher, dass du das Spiel "${game.title}" (${game.type}) und die zugehörige Datei permanent von der Festplatte löschen möchtest?`);
-        if (!confirmDelete) return;
+    // Render Files List
+    const filesContainer = document.getElementById('modal-files-container');
+    filesContainer.innerHTML = '';
+
+    game.allFiles.forEach(file => {
+        const fileRow = document.createElement('div');
+        fileRow.className = 'file-row';
         
-        try {
-            const response = await fetch(`/api/games/${game.dbKey}`, { method: 'DELETE' });
-            if (!response.ok) throw new Error('Fehler beim Löschen des Spiels.');
+        const sizeGB = ((file.fileSize || 0) / (1024 * 1024 * 1024)).toFixed(2);
+        
+        let typeBadgeClass = 'badge-base';
+        if (file.type === 'Update') typeBadgeClass = 'badge-update';
+        if (file.type === 'DLC') typeBadgeClass = 'badge-dlc';
+        
+        fileRow.innerHTML = `
+            <span class="badge ${typeBadgeClass}" style="min-width: 65px; text-align: center;">${file.type}</span>
+            <div class="file-name" title="${file.fileName}">${file.fileName}</div>
+            <span class="file-size">${sizeGB} GB</span>
+            <div class="file-actions">
+                <a href="/api/download/${file.dbKey}" class="btn-icon btn-icon-primary" title="Herunterladen"><i class="fa-solid fa-download"></i></a>
+                <button class="btn-icon btn-icon-danger file-delete-btn" title="Löschen"><i class="fa-solid fa-trash-can"></i></button>
+            </div>
+        `;
+        
+        // Bind individual file delete button
+        fileRow.querySelector('.file-delete-btn').addEventListener('click', async () => {
+            const confirmDelete = confirm(`Bist du sicher, dass du die Datei "${file.fileName}" permanent von der Festplatte löschen möchtest?`);
+            if (!confirmDelete) return;
             
-            const result = await response.json();
-            alert(result.message || 'Spiel erfolgreich gelöscht.');
-            hideModal();
-            fetchGames(); // Refresh the grid
-        } catch (err) {
-            console.error(err);
-            alert(`Fehler: ${err.message}`);
-        }
+            try {
+                const response = await fetch(`/api/games/${file.dbKey}`, { method: 'DELETE' });
+                if (!response.ok) throw new Error('Fehler beim Löschen der Datei.');
+                
+                const result = await response.json();
+                alert(result.message || 'Datei erfolgreich gelöscht.');
+                
+                hideModal();
+                fetchGames(); // Refresh the grid
+            } catch (err) {
+                console.error(err);
+                alert(`Fehler: ${err.message}`);
+            }
+        });
+        
+        filesContainer.appendChild(fileRow);
     });
 
     detailsModal.classList.remove('hidden');

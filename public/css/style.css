@@ -774,3 +774,100 @@ body {
         grid-template-columns: 1fr;
     }
 }
+
+/* Files List inside Modal */
+.files-list-section {
+    margin-top: 25px;
+    border-top: 1px solid var(--border-color);
+    padding-top: 20px;
+}
+
+.files-list-section h3 {
+    font-family: var(--font-display);
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.files-container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.file-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background-color: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    transition: all 0.2s ease;
+}
+
+.file-row:hover {
+    background-color: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+.file-row .file-name {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-main);
+    flex-grow: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.file-row .file-size {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-family: var(--font-display);
+    white-space: nowrap;
+}
+
+.file-row .file-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.btn-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    cursor: pointer;
+    border: none;
+    outline: none;
+    transition: all 0.2s ease;
+    text-decoration: none;
+}
+
+.btn-icon-primary {
+    background-color: rgba(0, 195, 227, 0.1);
+    color: var(--neon-blue);
+}
+
+.btn-icon-primary:hover {
+    background-color: var(--neon-blue);
+    color: #fff;
+    box-shadow: 0 0 10px rgba(0, 195, 227, 0.4);
+}
+
+.btn-icon-danger {
+    background-color: rgba(255, 60, 95, 0.1);
+    color: var(--neon-red);
+}
+
+.btn-icon-danger:hover {
+    background-color: var(--neon-red);
+    color: #fff;
+    box-shadow: 0 0 10px rgba(255, 60, 95, 0.4);
+}

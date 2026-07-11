@@ -159,10 +159,16 @@
                             <!-- Tags will be injected here -->
                         </div>
                     </div>
+
+                    <div class="files-list-section">
+                        <h3><i class="fa-solid fa-folder-open"></i> Installierte Dateien</h3>
+                        <div class="files-container" id="modal-files-container">
+                            <!-- File rows will be dynamically injected here -->
+                        </div>
+                    </div>
                 </div>
-                <div class="modal-footer">
-                    <button class="btn btn-danger" id="modal-delete-btn" style="margin-right: auto;"><i class="fa-solid fa-trash-can"></i> Spiel löschen</button>
-                    <a href="#" class="btn btn-primary" id="modal-download-btn" download><i class="fa-solid fa-download"></i> Spiel herunterladen</a>
+                <div class="modal-footer" style="justify-content: flex-end;">
+                    <button class="btn btn-secondary" onclick="hideModal()">Schließen</button>
                 </div>
             </div>
         </div>
