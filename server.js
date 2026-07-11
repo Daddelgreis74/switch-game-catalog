@@ -12,7 +12,7 @@ const GAMES_DIR = process.env.GAMES_DIR || 'D:\\NintendoGames';
 const KEYS_PATH = process.env.KEYS_PATH || 'D:\\prod.keys';
 const HACTOOL_PATH = path.join(__dirname, 'bin', process.platform === 'win32' ? 'hactool.exe' : 'hactool');
 const CACHE_DIR = path.join(__dirname, 'public', 'cache');
-const DB_PATH = path.join(__dirname, 'games_db.json');
+const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'games_db.json');
 const PYTHON_PATH = process.platform === 'win32' ? 'python' : 'python3'; // On Windows, we'll try standard python, or it can be configured
 
 // Ensure folder structures exist
