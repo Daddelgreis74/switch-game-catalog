@@ -2,21 +2,22 @@ version: '3.8'
 
 services:
   switch-library:
-    build: .
+    image: ghcr.io/daddelgreis74/switch-game-catalog:latest
     container_name: switch-game-catalog
     ports:
       - "3000:3000"
     volumes:
       # Mount your Nintendo Switch games folder
-      - D:\NintendoGames:/games
+      - /mnt/Datensicherung/Nintendo-Switch/Spiele:/games
       # Mount folder containing prod.keys
-      - D:\:/config:ro
-      # Persist database cache
-      - ./games_db.json:/app/games_db.json
-      # Persist extracted icons
-      - ./public/cache:/app/public/cache
+      - /mnt/Datensicherung/Nintendo-Switch/Keys:/config:ro
+      # Persist database cache (mapped to Datenbank directory)
+      - /mnt/Datensicherung/Nintendo-Switch/Datenbank:/app/db
+      # Persist extracted icons (mapped to Bilder-Cache directory)
+      - /mnt/Datensicherung/Nintendo-Switch/Bilder-Cache:/app/public/cache
     environment:
       - PORT=3000
       - GAMES_DIR=/games
       - KEYS_PATH=/config/prod.keys
+      - DB_PATH=/app/db/games_db.json
     restart: unless-stopped
