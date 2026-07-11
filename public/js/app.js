@@ -136,38 +136,36 @@ function groupGames(flatGames) {
     const groups = {};
     
     flatGames.forEach(game => {
-        const baseTitleId = game.titleId.substring(0, 13) + '000';
+        let baseTitleId = 'unknown';
+        // Extract base Title ID (16 hex chars, base ends in 000)
+        if (game.titleId && game.titleId !== 'unknown' && game.titleId.length >= 13) {
+            baseTitleId = game.titleId.substring(0, 13).toLowerCase() + '000';
+        } else {
+            // Give it a unique group so it doesn't group with other unknown games
+            baseTitleId = 'unknown_' + (game.dbKey || Math.random().toString());
+        }
         
         if (!groups[baseTitleId]) {
-            groups[baseTitleId] = {
-                base: null,
-                updates: [],
-                dlcs: [],
-                any: game
-            };
+            groups[baseTitleId] = [];
         }
-        
-        if (game.type === 'Base') {
-            groups[baseTitleId].base = game;
-        } else if (game.type === 'Update') {
-            groups[baseTitleId].updates.push(game);
-        } else if (game.type === 'DLC') {
-            groups[baseTitleId].dlcs.push(game);
-        }
+        groups[baseTitleId].push(game);
     });
     
     const grouped = [];
-    Object.entries(groups).forEach(([baseTitleId, group]) => {
-        const main = group.base ? { ...group.base } : { ...group.any };
+    Object.entries(groups).forEach(([baseTitleId, files]) => {
+        // Find if there is a 'Base' game in this group
+        const baseGame = files.find(f => f.type === 'Base');
         
-        main.allFiles = [];
-        if (group.base) main.allFiles.push(group.base);
-        group.updates.forEach(u => main.allFiles.push(u));
-        group.dlcs.forEach(d => main.allFiles.push(d));
+        // The main game card is the base game if it exists, otherwise the first file
+        const main = baseGame ? { ...baseGame } : { ...files[0] };
         
-        main.updatesCount = group.updates.length;
-        main.dlcsCount = group.dlcs.length;
-        main.hasBaseGame = !!group.base;
+        // allFiles contains all files in the group
+        main.allFiles = files;
+        
+        // Count updates and DLCs
+        main.updatesCount = files.filter(f => f.type === 'Update').length;
+        main.dlcsCount = files.filter(f => f.type === 'DLC').length;
+        main.hasBaseGame = !!baseGame;
         
         grouped.push(main);
     });
