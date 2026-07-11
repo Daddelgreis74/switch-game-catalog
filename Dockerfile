@@ -3,7 +3,7 @@ FROM debian:bookworm-slim AS builder
 RUN apt-get update && apt-get install -y git make gcc libssl-dev
 RUN git clone https://github.com/SciresM/hactool.git /src
 WORKDIR /src
-RUN make
+RUN cp config.mk.template config.mk && make
 
 # --- Stage 2: Node.js Runner ---
 FROM node:20-slim
