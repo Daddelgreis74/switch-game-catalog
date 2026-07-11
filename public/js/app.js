@@ -288,7 +288,7 @@ function setupUploadEvents() {
     });
 }
 
-// AJAX Upload with Progress
+// AJAX Upload with Progress (Stream-based raw upload)
 function handleFileUpload(file) {
     uploadProgressContainer.classList.remove('hidden');
     uploadFilename.textContent = file.name;
@@ -297,8 +297,6 @@ function handleFileUpload(file) {
     uploadStatus.textContent = 'Bereite Upload vor...';
 
     const xhr = new XMLHttpRequest();
-    const formData = new FormData();
-    formData.append('gameFile', file);
 
     // Track Progress
     xhr.upload.addEventListener('progress', (e) => {
@@ -337,8 +335,10 @@ function handleFileUpload(file) {
         uploadStatus.innerHTML = '<span style="color: var(--neon-red)"><i class="fa-solid fa-triangle-exclamation"></i> Netzwerkfehler beim Upload</span>';
     });
 
-    xhr.open('POST', API_UPLOAD);
-    xhr.send(formData);
+    // Send filename as query parameter and the raw file as request body
+    xhr.open('POST', `${API_UPLOAD}?name=${encodeURIComponent(file.name)}`);
+    xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+    xhr.send(file);
 }
 
 // Show/Hide Loading

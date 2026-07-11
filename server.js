@@ -204,25 +204,35 @@ app.delete('/api/games/:dbKey', (req, res) => {
     }
 });
 
-// API: Upload game file
+// API: Upload game file (Stream-based for high stability with 40GB+ files)
 app.post('/api/upload', (req, res) => {
-    if (!req.files || Object.keys(req.files).length === 0) {
-        return res.status(400).json({ error: 'No files were uploaded.' });
+    const fileName = req.query.name;
+    if (!fileName) {
+        return res.status(400).json({ error: 'Dateiname fehlt im Query-Parameter (?name=...)' });
     }
 
-    const gameFile = req.files.gameFile;
-    const destPath = path.join(GAMES_DIR, gameFile.name);
+    const destPath = path.join(GAMES_DIR, fileName);
+    console.log(`Piping upload stream to: ${destPath}`);
 
-    console.log(`Uploading file to: ${destPath}`);
-    
-    gameFile.mv(destPath, (err) => {
-        if (err) {
-            console.error(`Upload error: ${err}`);
-            return res.status(500).json({ error: 'Failed to save uploaded file.' });
+    const writeStream = fs.createWriteStream(destPath);
+    req.pipe(writeStream);
+
+    writeStream.on('error', (err) => {
+        console.error(`Write stream error: ${err}`);
+        res.status(500).json({ error: 'Fehler beim Schreiben der Datei auf Festplatte.' });
+    });
+
+    req.on('error', (err) => {
+        console.error(`Request stream error: ${err}`);
+        // Clean up partial file
+        if (fs.existsSync(destPath)) {
+            try { fs.unlinkSync(destPath); } catch (e) {}
         }
-        
+    });
+
+    writeStream.on('finish', () => {
         console.log(`Upload completed. Triggering automatic scan...`);
-        
+
         // Trigger scan automatically
         let pythonCmd = PYTHON_PATH;
         const customPython = 'C:\\Users\\dadde\\AppData\\Local\\Python\\bin\\python.exe';
@@ -232,14 +242,13 @@ app.post('/api/upload', (req, res) => {
         const scannerScript = path.join(__dirname, 'scanner_helper.py');
         const keysPath = getKeysPath();
         const cmd = `${pythonCmd} "${scannerScript}" "${GAMES_DIR}" "${HACTOOL_PATH}" "${keysPath}" "${CACHE_DIR}" "${DB_PATH}"`;
-        
+
         exec(cmd, (scanErr, stdout, stderr) => {
             if (scanErr) {
                 console.error(`Auto-scan error: ${scanErr.message}`);
-                // Still return success of upload
-                return res.json({ message: 'File uploaded, but automatic scan failed.', file: gameFile.name });
+                return res.json({ message: 'Upload abgeschlossen, aber automatischer Scan fehlgeschlagen.', file: fileName });
             }
-            res.json({ message: 'File uploaded and scanned successfully.', file: gameFile.name });
+            res.json({ message: 'Upload und Scan erfolgreich abgeschlossen.', file: fileName });
         });
     });
 });
