@@ -20,72 +20,94 @@ Das System katalogisiert vorhandene Spiele (`.nsp`, `.nsz`, `.zip`, `.xci`), lie
 
 ---
 
-## Voraussetzungen
+## 🔑 Voraussetzungen
 
-Um die Spieldateien entschlüsseln zu können, benötigst du die Konsolenschlüssel deiner Switch. 
-Die Datei muss den Namen **`prod.keys`** tragen und im System konfiguriert werden (z. B. auf `D:\prod.keys`).
+> [!IMPORTANT]
+> **Konsolenschlüssel (`prod.keys`) erforderlich:**
+> Um die Spieldateien entschlüsseln und Cover extrahieren zu können, benötigst du die Konsolenschlüssel deiner Switch.
+> Die Datei muss den Namen **`prod.keys`** tragen und im System konfiguriert werden (z. B. unter `D:\prod.keys` bzw. gemountet nach `/config/prod.keys`).
 
 ---
 
-## Lokale Installation (Windows)
+## 💻 Lokale Installation (Windows)
 
-1. **Repository klonen**
+1. **Repository klonen:**
+   ```bash
+   git clone https://github.com/Daddelgreis74/switch-game-catalog.git
+   cd switch-game-catalog
+   ```
+
 2. **Abhängigkeiten installieren:**
    ```bash
    npm install
    ```
-3. **Konfiguration anpassen (.env):**
+
+3. **Konfiguration anpassen (`.env`):**
    Erstelle eine `.env` Datei im Hauptverzeichnis:
    ```env
    PORT=3000
    GAMES_DIR=D:\NintendoGames
    KEYS_PATH=D:\prod.keys
    ```
+
 4. **Hactool bereitstellen:**
    Platziere die Windows-Version von `hactool.exe` im Ordner `bin/hactool.exe`.
+
 5. **Server starten:**
    ```bash
    npm start
    ```
-   Öffne danach **`http://localhost:3000`** in deinem Browser.
+
+> [!NOTE]
+> Öffne danach **`http://localhost:3000`** in deinem Browser.
 
 ---
 
-## TrueNAS SCALE & Docker Deployment
+## 🐳 TrueNAS SCALE & Docker Deployment
 
-Die App ist für Docker optimiert. Das Dockerfile baut `hactool` nativ für Linux und installiert Python 3 für den Scanner-Prozess.
+> [!TIP]
+> **Berechtigungen auf TrueNAS:**  
+> Stelle sicher, dass die App Lese- und Schreibrechte auf den Cache- und Spiele-Ordner besitzt (insbesondere falls Uploads oder das Löschen über die Web-Oberfläche genutzt werden sollen).
 
 ### Option 1: TrueNAS SCALE Custom App (Web-Oberfläche)
 
-Du kannst den Switch Game Catalog direkt über die TrueNAS SCALE Oberfläche als **Custom App** installieren:
+Installiere den Switch Game Catalog direkt über das TrueNAS SCALE Web-Interface:
 
-1. **Vorbereitung:**
-   - Erstelle ein Verzeichnis für deine `prod.keys`, z. B. `/mnt/tank/apps/switch-catalog/keys/` und lege die Datei dort ab.
-   - Erstelle ein Verzeichnis für den Cover-Cache, z. B. `/mnt/tank/apps/switch-catalog/cache/`.
-   - Halte den Pfad zu deinen Switch-Spielen bereit, z. B. `/mnt/tank/Spiele/Switch/`.
+#### 1️⃣ Vorbereitung (Datasets anlegen):
+- **Keys-Ordner:** z. B. `/mnt/tank/apps/switch-catalog/keys/` *(hier deine `prod.keys` ablegen)*
+- **Cache-Ordner:** z. B. `/mnt/tank/apps/switch-catalog/cache/`
+- **Spiele-Ordner:** z. B. `/mnt/tank/Spiele/Switch/`
 
-2. **App anlegen:**
-   - Navigiere in TrueNAS SCALE zu **Apps** ➜ **Discover Apps** ➜ **Custom App** (oben rechts).
-   - **Application Name:** `switch-game-catalog`
+#### 2️⃣ App anlegen:
+- Navigiere in TrueNAS SCALE zu **Apps** ➜ **Discover Apps** ➜ **Custom App** (oben rechts).
+- **Application Name:** `switch-game-catalog`
 
-3. **Container Image:**
-   - **Image repository:** `ghcr.io/daddelgreis74/switch-game-catalog`
-   - **Image tag:** `latest`
-   - **Image Pull Policy:** `Always`
+#### 3️⃣ Container Image:
+| Einstellung | Wert |
+| :--- | :--- |
+| **Image repository** | `ghcr.io/daddelgreis74/switch-game-catalog` |
+| **Image tag** | `latest` |
+| **Image Pull Policy** | `Always` |
 
-4. **Environment Variables:**
-   - `PORT`: `3000`
-   - `GAMES_DIR`: `/games`
-   - `KEYS_PATH`: `/config/prod.keys`
+#### 4️⃣ Environment Variables (Umgebungsvariablen):
+| Name | Wert | Beschreibung |
+| :--- | :--- | :--- |
+| `PORT` | `3000` | Interner Web-Port |
+| `GAMES_DIR` | `/games` | Pfad zu den Spielen im Container |
+| `KEYS_PATH` | `/config/prod.keys` | Pfad zur Schlüsseldatei im Container |
 
-5. **Port Forwarding:**
-   - **Container Port:** `3000`
-   - **Node Port / Web Port:** `3000` *(oder ein beliebiger freier Port)*
+#### 5️⃣ Port Forwarding:
+| Port-Typ | Port-Nummer | Protokoll |
+| :--- | :--- | :--- |
+| **Container Port** | `3000` | `TCP` |
+| **Node Port / Web Port** | `3000` *(oder freier Wunschport)* | `TCP` |
 
-6. **Storage (Host Path Volumes):**
-   - **Spiele:** Host Path `/mnt/tank/Spiele/Switch` ➜ Mount Path `/games`
-   - **Keys:** Host Path `/mnt/tank/apps/switch-catalog/keys` ➜ Mount Path `/config` *(Read-Only aktivieren)*
-   - **Cache:** Host Path `/mnt/tank/apps/switch-catalog/cache` ➜ Mount Path `/app/public/cache`
+#### 6️⃣ Storage (Host Path Volumes):
+| Host Path (TrueNAS Pfad) | Mount Path (Container Pfad) | Read Only |
+| :--- | :--- | :---: |
+| `/mnt/tank/Spiele/Switch` | `/games` | ❌ *Nein* |
+| `/mnt/tank/apps/switch-catalog/keys` | `/config` | ✅ *Ja* |
+| `/mnt/tank/apps/switch-catalog/cache` | `/app/public/cache` | ❌ *Nein* |
 
 ---
 
@@ -110,7 +132,7 @@ services:
       - /mnt/tank/Spiele/Switch:/games
       # Pfad zu deinen prod.keys (schreibgeschützt)
       - /mnt/tank/apps/switch-catalog/keys:/config:ro
-      # Persistierung der extrahierten Icons / Cache
+      # Persistierung der extrahierten Icons / Cover-Cache
       - /mnt/tank/apps/switch-catalog/cache:/app/public/cache
 ```
 
@@ -118,6 +140,9 @@ services:
 ```bash
 docker-compose up -d
 ```
+
+> [!NOTE]
+> Nach dem Start ist das Dashboard unter `http://<DEINE-SERVER-IP>:3000` erreichbar.
 
 ---
 
