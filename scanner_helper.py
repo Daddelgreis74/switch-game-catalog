@@ -5,6 +5,7 @@ import struct
 import zipfile
 import subprocess
 import shutil
+import tempfile
 import xml.etree.ElementTree as ET
 
 sys.stdout.reconfigure(encoding='utf-8')
@@ -23,85 +24,84 @@ def parse_nacp(nacp_path):
         return {}
     
     metadata = {}
-    with open(nacp_path, 'rb') as f:
-        data = f.read(0x3000)
-        
-        for i in range(16):
-            if i >= len(LANGUAGES):
-                break
-            entry = data[i*0x300 : (i+1)*0x300]
-            if len(entry) < 0x300:
-                break
+    try:
+        with open(nacp_path, 'rb') as f:
+            data = f.read(0x3000)
+            
+            for i in range(16):
+                if i >= len(LANGUAGES):
+                    break
+                entry = data[i*0x300 : (i+1)*0x300]
+                if len(entry) < 0x300:
+                    break
+                    
+                name_bytes = entry[:0x200].split(b'\x00')[0]
+                publisher_bytes = entry[0x200:0x300].split(b'\x00')[0]
                 
-            name_bytes = entry[:0x200].split(b'\x00')[0]
-            publisher_bytes = entry[0x200:0x300].split(b'\x00')[0]
-            
-            name = name_bytes.decode('utf-8', errors='ignore').strip()
-            publisher = publisher_bytes.decode('utf-8', errors='ignore').strip()
-            
-            if name or publisher:
-                metadata[LANGUAGES[i]] = {
-                    "name": name,
-                    "publisher": publisher
-                }
+                name = name_bytes.decode('utf-8', errors='ignore').strip()
+                publisher = publisher_bytes.decode('utf-8', errors='ignore').strip()
+                
+                if name or publisher:
+                    metadata[LANGUAGES[i]] = {
+                        "name": name,
+                        "publisher": publisher
+                    }
+    except Exception as e:
+        print(f"Error parsing nacp: {e}", file=sys.stderr)
     return metadata
 
 def parse_pfs0_header(stream):
-    # Read PFS0 header (16 bytes)
-    header_data = stream.read(16)
-    if len(header_data) < 16:
+    try:
+        header_data = stream.read(16)
+        if len(header_data) < 16:
+            return None
+            
+        magic, num_files, string_table_size, reserved = struct.unpack('<4sIII', header_data)
+        magic_str = magic.decode('ascii', errors='ignore')
+        if magic_str != "PFS0":
+            return None
+            
+        entry_size = 24
+        table_data = stream.read(num_files * entry_size)
+        if len(table_data) < num_files * entry_size:
+            return None
+            
+        entries = []
+        for i in range(num_files):
+            offset, size, name_offset, res = struct.unpack('<QQII', table_data[i*entry_size:(i+1)*entry_size])
+            entries.append({
+                'offset': offset,
+                'size': size,
+                'name_offset': name_offset
+            })
+            
+        string_table = stream.read(string_table_size)
+        if len(string_table) < string_table_size:
+            return None
+            
+        data_start_offset = 16 + num_files * entry_size + string_table_size
+        resolved_entries = {}
+        
+        for entry in entries:
+            name_bytes = bytearray()
+            idx = entry['name_offset']
+            while idx < len(string_table) and string_table[idx] != 0:
+                name_bytes.append(string_table[idx])
+                idx += 1
+            name = name_bytes.decode('utf-8', errors='ignore')
+            
+            resolved_entries[name] = {
+                'offset': data_start_offset + entry['offset'],
+                'size': entry['size']
+            }
+            
+        return resolved_entries
+    except Exception as e:
+        print(f"Error parsing PFS0 header: {e}", file=sys.stderr)
         return None
-        
-    magic, num_files, string_table_size, reserved = struct.unpack('<4sIII', header_data)
-    magic_str = magic.decode('ascii', errors='ignore')
-    if magic_str != "PFS0":
-        return None
-        
-    # Read File Entry Table (num_files * 24 bytes)
-    entry_size = 24
-    table_data = stream.read(num_files * entry_size)
-    if len(table_data) < num_files * entry_size:
-        return None
-        
-    entries = []
-    for i in range(num_files):
-        offset, size, name_offset, res = struct.unpack('<QQII', table_data[i*entry_size:(i+1)*entry_size])
-        entries.append({
-            'offset': offset,
-            'size': size,
-            'name_offset': name_offset
-        })
-        
-    # Read String Table
-    string_table = stream.read(string_table_size)
-    if len(string_table) < string_table_size:
-        return None
-        
-    # Resolve filenames and absolute file offsets
-    data_start_offset = 16 + num_files * entry_size + string_table_size
-    resolved_entries = {}
-    
-    for entry in entries:
-        name_bytes = bytearray()
-        idx = entry['name_offset']
-        while idx < len(string_table) and string_table[idx] != 0:
-            name_bytes.append(string_table[idx])
-            idx += 1
-        name = name_bytes.decode('utf-8', errors='ignore')
-        
-        resolved_entries[name] = {
-            'offset': data_start_offset + entry['offset'],
-            'size': entry['size']
-        }
-        
-    return resolved_entries
 
 def extract_and_parse_control(stream, pfs0_files, hactool_path, keys_path, cache_dir, temp_dir):
-    # 1. We need to find the control NCA.
-    # We can search for a file ending in .cnmt.xml or just look at NCAs that are around 1-2MB.
-    # Ideally, we read the cnmt.xml file to find the exact Control NCA ID.
     true_title_id = None
-    # Method 1: Extract Title ID from .tik or .cert file names (first 16 chars)
     for name in pfs0_files.keys():
         if name.endswith('.tik') or name.endswith('.cert'):
             base_name = os.path.basename(name)
@@ -114,7 +114,6 @@ def extract_and_parse_control(stream, pfs0_files, hactool_path, keys_path, cache
                 except ValueError:
                     pass
 
-    # Method 2: Fallback to cnmt.xml
     cnmt_xml_name = None
     for name in pfs0_files.keys():
         if name.endswith('.cnmt.xml'):
@@ -123,12 +122,11 @@ def extract_and_parse_control(stream, pfs0_files, hactool_path, keys_path, cache
             
     control_nca_id = None
     if cnmt_xml_name:
-        xml_entry = pfs0_files[cnmt_xml_name]
-        stream.seek(xml_entry['offset'])
-        xml_data = stream.read(xml_entry['size'])
         try:
+            xml_entry = pfs0_files[cnmt_xml_name]
+            stream.seek(xml_entry['offset'])
+            xml_data = stream.read(xml_entry['size'])
             root = ET.fromstring(xml_data)
-            # Read the ContentMeta Id tag which is the true Title ID of this package (Base / Update / DLC)
             if not true_title_id:
                 id_node = root.find("Id")
                 if id_node is not None:
@@ -139,7 +137,7 @@ def extract_and_parse_control(stream, pfs0_files, hactool_path, keys_path, cache
                             true_title_id = potential_id
                     except ValueError:
                         pass
-                
+                    
             for content in root.findall(".//Content"):
                 type_node = content.find("Type")
                 id_node = content.find("Id")
@@ -149,10 +147,8 @@ def extract_and_parse_control(stream, pfs0_files, hactool_path, keys_path, cache
         except Exception as e:
             print(f"Error parsing cnmt.xml: {e}", file=sys.stderr)
             
-    # Fallback: if cnmt.xml is not found or failed, look for an NCA around 1-2MB (usually control.nca)
     control_nca_name = None
     if control_nca_id:
-        # Check both .nca and .ncz (if compressed, though control is rarely compressed)
         for name in pfs0_files.keys():
             if name.startswith(control_nca_id):
                 control_nca_name = name
@@ -167,27 +163,29 @@ def extract_and_parse_control(stream, pfs0_files, hactool_path, keys_path, cache
     if not control_nca_name:
         return None
         
-    # Extract the control NCA to temp directory
     nca_entry = pfs0_files[control_nca_name]
-    temp_nca_path = os.path.join(temp_dir, "temp_control.nca")
+    temp_nca_path = os.path.join(temp_dir, f"temp_control_{os.getpid()}.nca")
     
-    stream.seek(nca_entry['offset'])
-    # Read in chunks to prevent memory issues for larger files
-    with open(temp_nca_path, 'wb') as out_f:
-        bytes_to_read = nca_entry['size']
-        chunk_size = 256 * 1024
-        while bytes_to_read > 0:
-            chunk = stream.read(min(bytes_to_read, chunk_size))
-            if not chunk:
-                break
-            out_f.write(chunk)
-            bytes_to_read -= len(chunk)
+    try:
+        stream.seek(nca_entry['offset'])
+        with open(temp_nca_path, 'wb') as out_f:
+            bytes_to_read = nca_entry['size']
+            chunk_size = 256 * 1024
+            while bytes_to_read > 0:
+                chunk = stream.read(min(bytes_to_read, chunk_size))
+                if not chunk:
+                    break
+                out_f.write(chunk)
+                bytes_to_read -= len(chunk)
+    except Exception as e:
+        print(f"Error extracting control NCA: {e}", file=sys.stderr)
+        return None
             
-    # Run hactool on the extracted NCA
-    romfs_temp_dir = os.path.join(temp_dir, "romfs")
+    romfs_temp_dir = os.path.join(temp_dir, f"romfs_{os.getpid()}")
     if os.path.exists(romfs_temp_dir):
-        shutil.rmtree(romfs_temp_dir)
-    os.makedirs(romfs_temp_dir)
+        try: shutil.rmtree(romfs_temp_dir)
+        except Exception: pass
+    os.makedirs(romfs_temp_dir, exist_ok=True)
     
     cmd = [
         hactool_path,
@@ -197,27 +195,17 @@ def extract_and_parse_control(stream, pfs0_files, hactool_path, keys_path, cache
     ]
     
     try:
-        # Run hactool silently
         result = subprocess.run(cmd, capture_output=True, text=True, errors='ignore')
         if result.returncode != 0:
-            print(f"hactool failed: {result.stderr}", file=sys.stderr)
-            return None
+            print(f"hactool stderr: {result.stderr}", file=sys.stderr)
             
-        # Parse control.nacp
         nacp_path = os.path.join(romfs_temp_dir, "control.nacp")
-        if not os.path.exists(nacp_path):
-            print("control.nacp not found in RomFS.", file=sys.stderr)
-            return None
-            
-        metadata = parse_nacp(nacp_path)
+        metadata = parse_nacp(nacp_path) if os.path.exists(nacp_path) else {}
         
-        # Get Title ID and Title name from NACP
-        # We use German as first choice, then AmericanEnglish, then whatever is available
-        title_id = None
+        title_id = true_title_id
         game_title = "Unknown Game"
         publisher = "Unknown Publisher"
         
-        # Try to find a good representative title
         preferred_langs = ["German", "AmericanEnglish", "BritishEnglish"]
         chosen_lang = None
         
@@ -229,14 +217,11 @@ def extract_and_parse_control(stream, pfs0_files, hactool_path, keys_path, cache
                 break
         
         if not chosen_lang and metadata:
-            # Take the first available language
             first_lang = list(metadata.keys())[0]
             game_title = metadata[first_lang]["name"]
             publisher = metadata[first_lang]["publisher"]
             
-        # Use true_title_id from cnmt.xml first, then fall back to hactool output
-        title_id = true_title_id
-        if not title_id:
+        if not title_id and result.stdout:
             for line in result.stdout.splitlines():
                 if "Title ID:" in line:
                     title_id = line.split("Title ID:")[1].strip().lower()
@@ -245,20 +230,21 @@ def extract_and_parse_control(stream, pfs0_files, hactool_path, keys_path, cache
         if not title_id:
             title_id = "unknown"
             
-        # Copy the icon
-        # Find German icon, or first available icon_*.dat
         icon_src_path = None
         if os.path.exists(os.path.join(romfs_temp_dir, "icon_German.dat")):
             icon_src_path = os.path.join(romfs_temp_dir, "icon_German.dat")
-        else:
+        elif os.path.exists(romfs_temp_dir):
             for file in os.listdir(romfs_temp_dir):
                 if file.startswith("icon_") and file.endswith(".dat"):
                     icon_src_path = os.path.join(romfs_temp_dir, file)
                     break
                     
-        if icon_src_path and title_id != "unknown":
+        if icon_src_path and title_id != "unknown" and os.path.exists(cache_dir):
             icon_dest_path = os.path.join(cache_dir, f"{title_id}.jpg")
-            shutil.copy(icon_src_path, icon_dest_path)
+            try:
+                shutil.copy(icon_src_path, icon_dest_path)
+            except Exception as e:
+                print(f"Warning: could not copy icon: {e}", file=sys.stderr)
             
         return {
             "titleId": title_id,
@@ -272,17 +258,17 @@ def extract_and_parse_control(stream, pfs0_files, hactool_path, keys_path, cache
         print(f"Error executing/parsing hactool: {e}", file=sys.stderr)
         return None
     finally:
-        # Cleanup temp control file and romfs directory
         if os.path.exists(temp_nca_path):
-            os.remove(temp_nca_path)
+            try: os.remove(temp_nca_path)
+            except Exception: pass
         if os.path.exists(romfs_temp_dir):
-            shutil.rmtree(romfs_temp_dir)
+            try: shutil.rmtree(romfs_temp_dir)
+            except Exception: pass
 
 def scan_file(file_path, hactool_path, keys_path, cache_dir, temp_dir):
     ext = os.path.splitext(file_path)[1].lower()
     
     if ext == '.zip':
-        # Open Zip and scan nested NSP/NSZ files
         games_found = []
         try:
             with zipfile.ZipFile(file_path, 'r') as z:
@@ -296,7 +282,6 @@ def scan_file(file_path, hactool_path, keys_path, cache_dir, temp_dir):
                                     stream, pfs0_files, hactool_path, keys_path, cache_dir, temp_dir
                                 )
                                 if meta:
-                                    # Add file details
                                     meta["fileName"] = os.path.basename(file_path)
                                     meta["nestedPath"] = member
                                     meta["filePath"] = file_path
@@ -308,7 +293,6 @@ def scan_file(file_path, hactool_path, keys_path, cache_dir, temp_dir):
         return games_found
         
     elif ext in ['.nsp', '.nsz']:
-        # Scan standalone NSP/NSZ
         try:
             with open(file_path, 'rb') as stream:
                 pfs0_files = parse_pfs0_header(stream)
@@ -345,6 +329,19 @@ def main():
     print(f"Cache dir: {cache_dir}", file=sys.stderr)
     print(f"Database path: {db_path}", file=sys.stderr)
     
+    # Ensure cache dir exists
+    try:
+        os.makedirs(cache_dir, exist_ok=True)
+    except Exception as e:
+        print(f"Warning: could not create cache dir {cache_dir}: {e}", file=sys.stderr)
+
+    # Ensure hactool is executable
+    if os.path.exists(hactool_path):
+        try:
+            os.chmod(hactool_path, 0o755)
+        except Exception:
+            pass
+
     # Load existing database if it exists
     database = {}
     if os.path.exists(db_path):
@@ -354,59 +351,53 @@ def main():
         except Exception as e:
             print(f"Error loading database: {e}", file=sys.stderr)
             
-    # Create temp directory
-    temp_dir = os.path.join(cache_dir, "temp_scanner")
+    # Create temp directory in system tmp
+    temp_dir = os.path.join(tempfile.gettempdir(), f"switch_scanner_{os.getpid()}")
     if os.path.exists(temp_dir):
-        shutil.rmtree(temp_dir)
-    os.makedirs(temp_dir)
+        try: shutil.rmtree(temp_dir)
+        except Exception: pass
+    os.makedirs(temp_dir, exist_ok=True)
     
-    if not os.path.exists(cache_dir):
-        os.makedirs(cache_dir)
-        
-    # Scan files in directory
     scanned_games = []
     
-    # Simple recursive directory walk
-    for root, dirs, files in os.walk(games_dir):
-        # Skip hidden directories and temp upload folders
-        dirs[:] = [d for d in dirs if not d.startswith('.') and not d.startswith('temp_')]
-        for file in files:
-            file_path = os.path.join(root, file)
-            ext = os.path.splitext(file)[1].lower()
-            if ext not in ['.nsp', '.nsz', '.zip']:
-                continue
-                
-            file_size = os.path.getsize(file_path)
-            mod_time = os.path.getmtime(file_path)
-            
-            # Check cache
-            cached_entries = [entry for entry in database.values() if entry.get("filePath") == file_path]
-            if cached_entries and cached_entries[0].get("fileSize") == file_size and cached_entries[0].get("modifiedTime") == mod_time:
-                # Cache hit!
-                print(f"Cache hit for: {file}", file=sys.stderr)
-                # Keep all cached entries for this file path
-                for entry in database.values():
-                    if entry.get("filePath") == file_path:
-                        scanned_games.append(entry)
-                continue
-                
-            # Cache miss - scan file
-            print(f"Scanning file: {file} ...", file=sys.stderr)
-            meta_list = scan_file(file_path, hactool_path, keys_path, cache_dir, temp_dir)
-            if meta_list:
-                for meta in meta_list:
-                    print(f"  Extracted game: {meta['title']} ({meta['titleId']})", file=sys.stderr)
-                    scanned_games.append(meta)
+    if os.path.exists(games_dir):
+        for root, dirs, files in os.walk(games_dir):
+            dirs[:] = [d for d in dirs if not d.startswith('.') and not d.startswith('temp_') and not d.startswith('switch_uploads')]
+            for file in files:
+                file_path = os.path.join(root, file)
+                ext = os.path.splitext(file)[1].lower()
+                if ext not in ['.nsp', '.nsz', '.zip']:
+                    continue
                     
-    # Rebuild database dictionary keyed by Title ID or unique key (filepath + nestedPath)
+                try:
+                    file_size = os.path.getsize(file_path)
+                    mod_time = os.path.getmtime(file_path)
+                except Exception:
+                    continue
+                
+                # Check cache
+                cached_entries = [entry for entry in database.values() if entry.get("filePath") == file_path]
+                if cached_entries and cached_entries[0].get("fileSize") == file_size and cached_entries[0].get("modifiedTime") == mod_time:
+                    for entry in database.values():
+                        if entry.get("filePath") == file_path:
+                            scanned_games.append(entry)
+                    continue
+                    
+                print(f"Scanning file: {file} ...", file=sys.stderr)
+                meta_list = scan_file(file_path, hactool_path, keys_path, cache_dir, temp_dir)
+                if meta_list:
+                    for meta in meta_list:
+                        print(f"  Extracted game: {meta['title']} ({meta['titleId']})", file=sys.stderr)
+                        scanned_games.append(meta)
+    else:
+        print(f"Games directory does not exist: {games_dir}", file=sys.stderr)
+                    
     new_database = {}
     for game in scanned_games:
         key = game["titleId"]
         if not key or key == "unknown":
             key = f"{os.path.basename(game['filePath'])}_{game['nestedPath']}"
             
-        # In case of duplicate title ID (e.g. base game and update), we store both or distinguish them
-        # Let's check if the game is an update or DLC based on Title ID (usually title IDs ending in 800 are updates, odd ones are DLC, base ends in 000)
         suffix = game["titleId"][-3:] if len(game["titleId"]) > 3 else ""
         if suffix == "800":
             game["type"] = "Update"
@@ -417,21 +408,35 @@ def main():
         else:
             game["type"] = "Unknown"
             
-        # Store using a compound key to prevent overwriting updates/DLCs
         db_key = f"{game['titleId']}_{game['type']}"
         new_database[db_key] = game
         
     # Save database
+    saved = False
     try:
+        db_dir = os.path.dirname(db_path)
+        if db_dir:
+            os.makedirs(db_dir, exist_ok=True)
         with open(db_path, 'w', encoding='utf-8') as f:
             json.dump(new_database, f, indent=2, ensure_ascii=False)
+        saved = True
         print("Database saved successfully.", file=sys.stderr)
     except Exception as e:
-        print(f"Error saving database: {e}", file=sys.stderr)
+        print(f"Error saving database to {db_path}: {e}", file=sys.stderr)
+        
+    if not saved:
+        for fallback_path in [os.path.join(cache_dir, "games_db.json"), os.path.join(tempfile.gettempdir(), "games_db.json")]:
+            try:
+                with open(fallback_path, 'w', encoding='utf-8') as f:
+                    json.dump(new_database, f, indent=2, ensure_ascii=False)
+                break
+            except Exception:
+                pass
         
     # Cleanup temp directory
     if os.path.exists(temp_dir):
-        shutil.rmtree(temp_dir)
+        try: shutil.rmtree(temp_dir)
+        except Exception: pass
         
     # Print the games list as JSON to stdout for Node.js
     print(json.dumps(new_database, ensure_ascii=False))

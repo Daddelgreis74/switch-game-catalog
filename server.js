@@ -186,38 +186,61 @@ app.get('/api/games', (req, res) => {
     }
 });
 
+const getHactoolPath = () => {
+    if (process.env.HACTOOL_PATH && fs.existsSync(process.env.HACTOOL_PATH)) {
+        return process.env.HACTOOL_PATH;
+    }
+    const localBin = path.join(__dirname, 'bin', process.platform === 'win32' ? 'hactool.exe' : 'hactool');
+    if (fs.existsSync(localBin)) {
+        return localBin;
+    }
+    if (fs.existsSync('/usr/local/bin/hactool')) {
+        return '/usr/local/bin/hactool';
+    }
+    return localBin;
+};
+
 // API: Trigger scan
 app.post('/api/scan', (req, res) => {
     const pythonCmd = resolvePythonCmd();
 
     const scannerScript = path.join(__dirname, 'scanner_helper.py');
     const keysPath = getKeysPath();
-    const cmd = `${pythonCmd} "${scannerScript}" "${GAMES_DIR}" "${HACTOOL_PATH}" "${keysPath}" "${CACHE_DIR}" "${DB_PATH}"`;
+    const hactoolPath = getHactoolPath();
+    const cmd = `${pythonCmd} "${scannerScript}" "${GAMES_DIR}" "${hactoolPath}" "${keysPath}" "${CACHE_DIR}" "${DB_PATH}"`;
 
     console.log(`Running scan command: ${cmd}`);
-    exec(cmd, (error, stdout, stderr) => {
+    exec(cmd, { maxBuffer: 50 * 1024 * 1024 }, (error, stdout, stderr) => {
         if (stderr) {
             console.error(`Scanner stderr: ${stderr}`);
         }
         if (error) {
             console.error(`Scanner error: ${error.message}`);
-            return res.status(500).json({ error: 'Scan failed.', details: error.message });
+            return res.status(500).json({ 
+                error: 'Scan failed.', 
+                details: error.message,
+                stderr: stderr ? stderr.slice(-400) : '' 
+            });
         }
         try {
             const dbContent = JSON.parse(stdout);
             res.json(dbContent);
         } catch (e) {
-            // If stdout parsing failed, read from db path directly
-            if (fs.existsSync(DB_PATH)) {
-                try {
-                    const data = fs.readFileSync(DB_PATH, 'utf8');
-                    res.json(JSON.parse(data));
-                } catch (readErr) {
-                    res.status(500).json({ error: 'Scan completed but failed to parse results.' });
+            // If stdout parsing failed, read from db path directly or fallback
+            const possibleDbPaths = [
+                DB_PATH, 
+                path.join(CACHE_DIR, 'games_db.json'), 
+                path.join(os.tmpdir(), 'games_db.json')
+            ];
+            for (const p of possibleDbPaths) {
+                if (fs.existsSync(p)) {
+                    try {
+                        const data = fs.readFileSync(p, 'utf8');
+                        return res.json(JSON.parse(data));
+                    } catch (readErr) {}
                 }
-            } else {
-                res.status(500).json({ error: 'Scan completed but database was not created.' });
             }
+            res.status(500).json({ error: 'Scan completed but failed to parse results.' });
         }
     });
 });
@@ -343,9 +366,10 @@ app.post('/api/upload', (req, res) => {
         const pythonCmd = resolvePythonCmd();
         const scannerScript = path.join(__dirname, 'scanner_helper.py');
         const keysPath = getKeysPath();
-        const cmd = `${pythonCmd} "${scannerScript}" "${GAMES_DIR}" "${HACTOOL_PATH}" "${keysPath}" "${CACHE_DIR}" "${DB_PATH}"`;
+        const hactoolPath = getHactoolPath();
+        const cmd = `${pythonCmd} "${scannerScript}" "${GAMES_DIR}" "${hactoolPath}" "${keysPath}" "${CACHE_DIR}" "${DB_PATH}"`;
 
-        exec(cmd, (scanErr, stdout, stderr) => {
+        exec(cmd, { maxBuffer: 50 * 1024 * 1024 }, (scanErr, stdout, stderr) => {
             if (scanErr) {
                 console.error(`Auto-scan error: ${scanErr.message}`);
                 return res.json({ message: 'Upload abgeschlossen, aber automatischer Scan fehlgeschlagen.', file: safeName });

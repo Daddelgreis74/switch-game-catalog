@@ -23,7 +23,8 @@ COPY public/ ./public/
 
 # Copy compiled hactool binary from Stage 1
 COPY --from=builder /src/hactool ./bin/hactool
-RUN chmod +x ./bin/hactool ./entrypoint.sh && sed -i 's/\r$//' ./entrypoint.sh
+COPY --from=builder /src/hactool /usr/local/bin/hactool
+RUN chmod +x ./bin/hactool /usr/local/bin/hactool ./entrypoint.sh && sed -i 's/\r$//' ./entrypoint.sh
 
 # Ensure folders exist and are writable for any user (e.g. TrueNAS apps UID 568)
 RUN mkdir -p /app/public/cache /app/db /config /games /tmp && chmod -R 777 /app /tmp

@@ -23,3 +23,7 @@ Thumbs.db
 
 # Executables (Windows build can be downloaded from releases, Docker builds from source)
 bin/hactool.exe
+
+# Python cache
+__pycache__/
+*.pyc
