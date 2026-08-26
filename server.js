@@ -304,9 +304,8 @@ app.get('/api/metadata/:titleId', async (req, res) => {
             screenshots: foundEntry.screenshots || []
         });
     }
-
     try {
-        const fetchUrl = `https://not.ultranx.ru/${lang}/game/${baseTitleId.toUpperCase()}`;
+        const fetchUrl = `https://api.nlib.cc/nx/${baseTitleId.toUpperCase()}`;
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 6000);
 
@@ -318,85 +317,21 @@ app.get('/api/metadata/:titleId', async (req, res) => {
         });
         clearTimeout(timeoutId);
 
-        let html = '';
+        let description = '';
+        let categories = [];
+        let releaseDate = '';
+        let screenshots = [];
+
         if (response.ok) {
-            html = await response.text();
-        }
-
-        const parseHtml = (htmlContent) => {
-            let desc = '';
-            const descMatch = htmlContent.match(/<pre[^>]*id="gameDescription"[^>]*>([\s\S]*?)<\/pre>/i);
-            if (descMatch && descMatch[1]) {
-                desc = descMatch[1]
-                    .replace(/<[^>]+>/g, '')
-                    .replace(/&amp;/g, '&')
-                    .replace(/&lt;/g, '<')
-                    .replace(/&gt;/g, '>')
-                    .replace(/&quot;/g, '"')
-                    .replace(/&#39;/g, "'")
-                    .trim();
+            const data = await response.json();
+            description = data.description || data.intro || '';
+            categories = data.category || [];
+            releaseDate = data.releaseDate || '';
+            if (data.screens && Array.isArray(data.screens.screenshots)) {
+                screenshots = data.screens.screenshots;
             }
-
-            const cats = [];
-            const catMatch = htmlContent.match(/<p><strong>(?:Categories|Kategorien):<\/strong>(.*?)<\/p>/i);
-            if (catMatch && catMatch[1]) {
-                const rawCats = catMatch[1].replace(/<[^>]+>/g, '').split(',');
-                for (const cat of rawCats) {
-                    const c = cat.trim();
-                    if (c && !cats.includes(c)) cats.push(c);
-                }
-            }
-
-            let relDate = '';
-            const dateMatch = htmlContent.match(/<p><strong>(?:Release Date|Erscheinungsdatum):<\/strong>(.*?)<\/p>/i);
-            if (dateMatch && dateMatch[1]) {
-                relDate = dateMatch[1].replace(/<[^>]+>/g, '').trim();
-            }
-
-            const screens = [];
-            const screenMatches = htmlContent.match(/https:\/\/api\.ultranx\.ru\/assets\/images\/[a-f0-9]+\.webp/gi) || [];
-            for (const s of screenMatches) {
-                if (!screens.includes(s)) screens.push(s);
-                if (screens.length >= 12) break;
-            }
-
-            return { desc, cats, relDate, screens };
-        };
-
-        let parsed = parseHtml(html);
-        let description = parsed.desc;
-        let categories = parsed.cats;
-        let releaseDate = parsed.relDate;
-        let screenshots = parsed.screens;
-
-        // Fallback to English if description is empty and we originally requested German
-        if ((!description || description.trim() === '') && lang === 'de') {
-            console.log(`German description missing for ${baseTitleId}, trying English fallback...`);
-            try {
-                const fallbackUrl = `https://not.ultranx.ru/en/game/${baseTitleId.toUpperCase()}`;
-                const fbController = new AbortController();
-                const fbTimeoutId = setTimeout(() => fbController.abort(), 6000);
-                const fbResponse = await fetch(fallbackUrl, {
-                    signal: fbController.signal,
-                    headers: {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-                    }
-                });
-                clearTimeout(fbTimeoutId);
-
-                if (fbResponse.ok) {
-                    const fbHtml = await fbResponse.text();
-                    const fbParsed = parseHtml(fbHtml);
-                    if (fbParsed.desc) {
-                        description = fbParsed.desc;
-                        categories = fbParsed.cats;
-                        screenshots = fbParsed.screens;
-                        if (!releaseDate) releaseDate = fbParsed.relDate;
-                    }
-                }
-            } catch (fbErr) {
-                console.warn(`English fallback failed for ${baseTitleId}: ${fbErr.message}`);
-            }
+        } else {
+            return res.status(404).json({ error: 'Keine Metadaten in der öffentlichen Datenbank gefunden.' });
         }
 
         const metaResult = {
@@ -428,7 +363,7 @@ app.get('/api/metadata/:titleId', async (req, res) => {
         res.json(metaResult);
     } catch (err) {
         console.warn(`Metadata fetch error for ${titleId}: ${err.message}`);
-        res.status(500).json({ error: 'Metadaten konnten nicht abgerufen werden: ' + err.message });
+        res.status(500).json({ error: 'Metadaten konnten nicht aus der Datenbank geladen werden: ' + err.message });;
     }
 });
 
