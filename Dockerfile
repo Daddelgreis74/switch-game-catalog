@@ -8,8 +8,8 @@ RUN cp config.mk.template config.mk && make
 # --- Stage 2: Node.js Runner ---
 FROM node:20-slim
 
-# Install Python 3 and libssl (required by hactool at runtime)
-RUN apt-get update && apt-get install -y python3 libssl3 && rm -rf /var/lib/apt/lists/*
+# Install Python 3, libssl, curl and wget (required by hactool and TrueNAS healthchecks)
+RUN apt-get update && apt-get install -y python3 libssl3 curl wget && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
