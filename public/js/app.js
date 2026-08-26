@@ -519,7 +519,7 @@ function renderGames(gamesList) {
 
         card.className = `game-card ${typeClass}`;
         
-        const iconSrc = game.icon ? game.icon : 'images/fallback_icon.png';
+        const iconSrc = game.icon ? game.icon : 'favicon.svg';
         
         let badgesHtml = '';
         if (game.hasBaseGame) {
@@ -538,7 +538,7 @@ function renderGames(gamesList) {
 
         card.innerHTML = `
             <div class="card-image-wrapper">
-                <img src="${iconSrc}" alt="${game.title}" onerror="this.src='https://raw.githubusercontent.com/blawar/titledb/master/images/0100152000022000.png'">
+                <img src="${iconSrc}" alt="${game.title}" onerror="this.onerror=null; this.src='favicon.svg';">
             </div>
             <div class="card-content">
                 <div class="card-header-row" style="display: flex; gap: 6px; flex-wrap: wrap;">
@@ -717,9 +717,10 @@ function showLoading(show) {
 
 // Modal Details Dialog
 function showDetails(game) {
-    modalIcon.src = game.icon ? game.icon : 'images/fallback_icon.png';
+    modalIcon.src = game.icon ? game.icon : 'favicon.svg';
     modalIcon.onerror = function() {
-        this.src = 'https://raw.githubusercontent.com/blawar/titledb/master/images/0100152000022000.png';
+        this.onerror = null;
+        this.src = 'favicon.svg';
     };
 
     modalType.textContent = game.hasBaseGame ? t('card.base_game') : (game.updatesCount > 0 ? t('card.update') : 'DLC');

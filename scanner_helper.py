@@ -102,81 +102,55 @@ def parse_pfs0_header(stream):
 
 def extract_and_parse_control(stream, pfs0_files, hactool_path, keys_path, cache_dir, temp_dir):
     true_title_id = None
-    for name in pfs0_files.keys():
-        if name.endswith('.tik') or name.endswith('.cert'):
-            base_name = os.path.basename(name)
-            if len(base_name) >= 16:
-                potential_id = base_name[:16].lower()
-                try:
-                    int(potential_id, 16)
-                    true_title_id = potential_id
-                    break
-                except ValueError:
-                    pass
-
-    cnmt_xml_name = None
-    for name in pfs0_files.keys():
-        if name.endswith('.cnmt.xml'):
-            cnmt_xml_name = name
-            break
-            
-    control_nca_id = None
-    if cnmt_xml_name:
-        try:
-            xml_entry = pfs0_files[cnmt_xml_name]
-            stream.seek(xml_entry['offset'])
-            xml_data = stream.read(xml_entry['size'])
-            root = ET.fromstring(xml_data)
-            if not true_title_id:
-                id_node = root.find("Id")
-                if id_node is not None:
-                    potential_id = id_node.text.replace("0x", "").lower().strip()
-                    try:
-                        int(potential_id, 16)
-                        if len(potential_id) == 16:
-                            true_title_id = potential_id
-                    except ValueError:
-                        pass
-                    
-            for content in root.findall(".//Content"):
-                type_node = content.find("Type")
-                id_node = content.find("Id")
-                if type_node is not None and type_node.text == "Control" and id_node is not None:
-                    control_nca_id = id_node.text
-                    break
-        except Exception as e:
-            print(f"Error parsing cnmt.xml: {e}", file=sys.stderr)
-            
-    control_nca_name = None
-    if control_nca_id:
+    # Check for XML / CNMT first
+    for name, entry in pfs0_files.items():
+        if name.endswith(".cnmt.xml"):
+            try:
+                stream.seek(entry["offset"])
+                xml_data = stream.read(entry["size"])
+                root = ET.fromstring(xml_data)
+                for elem in root.iter():
+                    if elem.tag.endswith("Id") and elem.text and len(elem.text.strip()) == 16:
+                        true_title_id = elem.text.strip().lower()
+                        break
+            except Exception:
+                pass
+                
+    if not true_title_id:
         for name in pfs0_files.keys():
-            if name.startswith(control_nca_id):
-                control_nca_name = name
-                break
-    
-    if not control_nca_name:
-        for name, entry in pfs0_files.items():
-            if name.endswith('.nca') and 500000 < entry['size'] < 5000000:
-                control_nca_name = name
+            if name.endswith(".tik") or name.endswith(".cert"):
+                potential_id = name.split(".")[0][:16]
+                if len(potential_id) == 16:
+                    true_title_id = potential_id.lower()
+                    break
+
+    for name, entry in pfs0_files.items():
+        if name.endswith(".nca"):
+            if "control" in name.lower() or entry["size"] < 10 * 1024 * 1024:
+                control_entry = (name, entry)
                 break
                 
-    if not control_nca_name:
+    if not control_entry:
+        for name, entry in pfs0_files.items():
+            if name.endswith(".nca"):
+                control_entry = (name, entry)
+                break
+                
+    if not control_entry:
         return None
         
-    nca_entry = pfs0_files[control_nca_name]
-    temp_nca_path = os.path.join(temp_dir, f"temp_control_{os.getpid()}.nca")
-    
+    control_name, entry = control_entry
+    temp_nca_path = os.path.join(temp_dir, f"temp_control_{os.getpid()}_{control_name}")
     try:
-        stream.seek(nca_entry['offset'])
-        with open(temp_nca_path, 'wb') as out_f:
-            bytes_to_read = nca_entry['size']
-            chunk_size = 256 * 1024
-            while bytes_to_read > 0:
-                chunk = stream.read(min(bytes_to_read, chunk_size))
+        stream.seek(entry["offset"])
+        with open(temp_nca_path, "wb") as f:
+            bytes_left = entry["size"]
+            while bytes_left > 0:
+                chunk = stream.read(min(bytes_left, 1024 * 1024))
                 if not chunk:
                     break
-                out_f.write(chunk)
-                bytes_to_read -= len(chunk)
+                f.write(chunk)
+                bytes_left -= len(chunk)
     except Exception as e:
         print(f"Error extracting control NCA: {e}", file=sys.stderr)
         return None
@@ -200,71 +174,74 @@ def extract_and_parse_control(stream, pfs0_files, hactool_path, keys_path, cache
             print(f"hactool stderr: {result.stderr}", file=sys.stderr)
     except subprocess.TimeoutExpired:
         print(f"hactool timed out on {temp_nca_path}", file=sys.stderr)
-        return None
+        result = None
     except Exception as e:
         print(f"Error running hactool: {e}", file=sys.stderr)
-        return None
+        result = None
 
-    try:
-            
-        nacp_path = os.path.join(romfs_temp_dir, "control.nacp")
-        metadata = parse_nacp(nacp_path) if os.path.exists(nacp_path) else {}
+    metadata = {}
+    nacp_path = os.path.join(romfs_temp_dir, "control.nacp")
+    if os.path.exists(nacp_path):
+        metadata = parse_nacp(nacp_path)
+    
+    title_id = true_title_id
+    game_title = "Unknown Game"
+    publisher = "Unknown Publisher"
+    
+    preferred_langs = ["German", "AmericanEnglish", "BritishEnglish"]
+    chosen_lang = None
+    
+    for lang in preferred_langs:
+        if lang in metadata:
+            game_title = metadata[lang]["name"]
+            publisher = metadata[lang]["publisher"]
+            chosen_lang = lang
+            break
+    
+    if not chosen_lang and metadata:
+        first_lang = list(metadata.keys())[0]
+        game_title = metadata[first_lang]["name"]
+        publisher = metadata[first_lang]["publisher"]
         
-        title_id = true_title_id
-        game_title = "Unknown Game"
-        publisher = "Unknown Publisher"
-        
-        preferred_langs = ["German", "AmericanEnglish", "BritishEnglish"]
-        chosen_lang = None
-        
-        for lang in preferred_langs:
-            if lang in metadata:
-                game_title = metadata[lang]["name"]
-                publisher = metadata[lang]["publisher"]
-                chosen_lang = lang
+    if not title_id and result and result.stdout:
+        for line in result.stdout.splitlines():
+            if "Title ID:" in line:
+                title_id = line.split("Title ID:")[1].strip().lower()
                 break
+            
+    if not title_id:
+        title_id = "unknown"
         
-        if not chosen_lang and metadata:
-            first_lang = list(metadata.keys())[0]
-            game_title = metadata[first_lang]["name"]
-            publisher = metadata[first_lang]["publisher"]
-            
-        if not title_id and result.stdout:
-            for line in result.stdout.splitlines():
-                if "Title ID:" in line:
-                    title_id = line.split("Title ID:")[1].strip().lower()
-                    break
+    # Fallback to filename if title is unknown
+    if (not game_title or game_title == "Unknown Game") and file_path:
+        game_title = clean_title_from_filename(file_path)
+        if publisher == "Unknown Publisher":
+            publisher = ""
+        
+    icon_src_path = None
+    if os.path.exists(os.path.join(romfs_temp_dir, "icon_German.dat")):
+        icon_src_path = os.path.join(romfs_temp_dir, "icon_German.dat")
+    elif os.path.exists(romfs_temp_dir):
+        for file in os.listdir(romfs_temp_dir):
+            if file.startswith("icon_") and file.endswith(".dat"):
+                icon_src_path = os.path.join(romfs_temp_dir, file)
+                break
                 
-        if not title_id:
-            title_id = "unknown"
-            
-        icon_src_path = None
-        if os.path.exists(os.path.join(romfs_temp_dir, "icon_German.dat")):
-            icon_src_path = os.path.join(romfs_temp_dir, "icon_German.dat")
-        elif os.path.exists(romfs_temp_dir):
-            for file in os.listdir(romfs_temp_dir):
-                if file.startswith("icon_") and file.endswith(".dat"):
-                    icon_src_path = os.path.join(romfs_temp_dir, file)
-                    break
-                    
-        if icon_src_path and title_id != "unknown" and os.path.exists(cache_dir):
-            icon_dest_path = os.path.join(cache_dir, f"{title_id}.jpg")
-            try:
-                shutil.copy(icon_src_path, icon_dest_path)
-            except Exception as e:
-                print(f"Warning: could not copy icon: {e}", file=sys.stderr)
-            
+    if icon_src_path and title_id != "unknown" and os.path.exists(cache_dir):
+        icon_dest_path = os.path.join(cache_dir, f"{title_id}.jpg")
+        try:
+            shutil.copy(icon_src_path, icon_dest_path)
+        except Exception as e:
+            print(f"Warning: could not copy icon: {e}", file=sys.stderr)
+        
+    try:
         return {
             "titleId": title_id,
             "title": game_title,
             "publisher": publisher,
-            "languages": list(metadata.keys()),
-            "icon": f"/cache/{title_id}.jpg" if title_id != "unknown" else None
+            "languages": list(metadata.keys()) if metadata else [],
+            "icon": f"/cache/{title_id}.jpg" if icon_src_path else None
         }
-        
-    except Exception as e:
-        print(f"Error executing/parsing hactool: {e}", file=sys.stderr)
-        return None
     finally:
         if os.path.exists(temp_nca_path):
             try: os.remove(temp_nca_path)
@@ -287,7 +264,7 @@ def scan_file(file_path, hactool_path, keys_path, cache_dir, temp_dir):
                             pfs0_files = parse_pfs0_header(stream)
                             if pfs0_files:
                                 meta = extract_and_parse_control(
-                                    stream, pfs0_files, hactool_path, keys_path, cache_dir, temp_dir
+                                    stream, pfs0_files, hactool_path, keys_path, cache_dir, temp_dir, file_path=member
                                 )
                                 if meta:
                                     meta["fileName"] = os.path.basename(file_path)
@@ -306,7 +283,7 @@ def scan_file(file_path, hactool_path, keys_path, cache_dir, temp_dir):
                 pfs0_files = parse_pfs0_header(stream)
                 if pfs0_files:
                     meta = extract_and_parse_control(
-                        stream, pfs0_files, hactool_path, keys_path, cache_dir, temp_dir
+                        stream, pfs0_files, hactool_path, keys_path, cache_dir, temp_dir, file_path=file_path
                     )
                     if meta:
                         meta["fileName"] = os.path.basename(file_path)
