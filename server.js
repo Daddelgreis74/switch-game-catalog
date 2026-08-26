@@ -2,6 +2,7 @@ const express = require('express');
 const fileUpload = require('express-fileupload');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const { exec } = require('child_process');
 require('dotenv').config();
 
@@ -42,7 +43,11 @@ const getCandidateKeysPaths = () => {
     candidates.push(path.join(__dirname, 'config', 'prod.keys'));
     candidates.push(path.join(__dirname, 'keys', 'prod.keys'));
     
-    // 6. User home directory
+    // 6. Temp directory (Always writable in Linux/Docker regardless of UID)
+    candidates.push(path.join(os.tmpdir(), 'prod.keys'));
+    candidates.push('/tmp/prod.keys');
+    
+    // 7. User home directory
     try {
         const homeDir = process.env.HOME || process.env.USERPROFILE || '';
         if (homeDir) {
@@ -81,7 +86,9 @@ const saveKeysContent = (content) => {
         path.join(CACHE_DIR, 'prod.keys'),
         path.join(path.dirname(DB_PATH), 'prod.keys'),
         path.join(GAMES_DIR, 'prod.keys'),
-        path.join(__dirname, 'prod.keys')
+        path.join(__dirname, 'prod.keys'),
+        path.join(os.tmpdir(), 'prod.keys'),
+        '/tmp/prod.keys'
     ];
 
     // If KEYS_PATH directory is writable, also save there
