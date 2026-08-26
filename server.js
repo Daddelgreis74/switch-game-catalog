@@ -69,6 +69,12 @@ if (!fs.existsSync(tempUploadsDir)) {
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Favicon fallback route
+app.get('/favicon.ico', (req, res) => {
+    res.type('image/svg+xml');
+    res.sendFile(path.join(__dirname, 'public', 'favicon.svg'));
+});
+
 // Configure fileupload middleware with temp files for large games
 app.use(fileUpload({
     useTempFiles: true,
