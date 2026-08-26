@@ -14,34 +14,102 @@ const CACHE_DIR = path.join(__dirname, 'public', 'cache');
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'games_db.json');
 const PYTHON_PATH = process.platform === 'win32' ? 'python' : 'python3'; // On Windows, we'll try standard python, or it can be configured
 
-const getKeysPath = () => {
-    // 1. Check if KEYS_PATH is a direct file with content
-    if (fs.existsSync(KEYS_PATH) && fs.statSync(KEYS_PATH).isFile() && fs.statSync(KEYS_PATH).size > 0) {
-        return KEYS_PATH;
+const getCandidateKeysPaths = () => {
+    const candidates = [];
+    
+    // 1. Explicit KEYS_PATH env var
+    if (KEYS_PATH) {
+        candidates.push(KEYS_PATH);
+        candidates.push(path.join(KEYS_PATH, 'prod.keys'));
+        candidates.push(path.join(path.dirname(KEYS_PATH), 'prod.keys'));
     }
-    // 2. Check if a directory is mounted to KEYS_PATH and contains prod.keys
-    const configKeysFile = path.join(KEYS_PATH, 'prod.keys');
-    if (fs.existsSync(configKeysFile) && fs.statSync(configKeysFile).isFile() && fs.statSync(configKeysFile).size > 0) {
-        return configKeysFile;
-    }
-    // 3. Check inside the database directory
+    
+    // 2. Cache directory (Mounted & Persistent in TrueNAS)
+    candidates.push(path.join(CACHE_DIR, 'prod.keys'));
+    candidates.push(path.join(CACHE_DIR, 'keys', 'prod.keys'));
+    
+    // 3. Database directory
     const dbDir = path.dirname(DB_PATH);
-    const dbKeysFile = path.join(dbDir, 'prod.keys');
-    if (fs.existsSync(dbKeysFile) && fs.statSync(dbKeysFile).isFile() && fs.statSync(dbKeysFile).size > 0) {
-        return dbKeysFile;
+    candidates.push(path.join(dbDir, 'prod.keys'));
+    candidates.push(path.join(dbDir, 'keys', 'prod.keys'));
+    
+    // 4. Games directory (Mounted & Persistent in TrueNAS)
+    candidates.push(path.join(GAMES_DIR, 'prod.keys'));
+    candidates.push(path.join(GAMES_DIR, '.config', 'prod.keys'));
+    
+    // 5. App local directory
+    candidates.push(path.join(__dirname, 'prod.keys'));
+    candidates.push(path.join(__dirname, 'config', 'prod.keys'));
+    candidates.push(path.join(__dirname, 'keys', 'prod.keys'));
+    
+    // 6. User home directory
+    try {
+        const homeDir = process.env.HOME || process.env.USERPROFILE || '';
+        if (homeDir) {
+            candidates.push(path.join(homeDir, '.switch', 'prod.keys'));
+        }
+    } catch (e) {}
+
+    return candidates;
+};
+
+const getKeysPath = () => {
+    const candidates = getCandidateKeysPaths();
+    for (const p of candidates) {
+        try {
+            if (fs.existsSync(p) && fs.statSync(p).isFile() && fs.statSync(p).size > 0) {
+                return p;
+            }
+        } catch (e) {}
     }
-    // 4. Check local app directory
-    const localKeysFile = path.join(__dirname, 'prod.keys');
-    if (fs.existsSync(localKeysFile) && fs.statSync(localKeysFile).isFile() && fs.statSync(localKeysFile).size > 0) {
-        return localKeysFile;
-    }
-    // Fallback: Return a writable path where we will save the keys (in database directory)
-    return dbKeysFile; 
+    // Fallback: return preferred persistent path
+    return path.join(CACHE_DIR, 'prod.keys');
 };
 
 const hasKeys = () => {
     const p = getKeysPath();
-    return fs.existsSync(p) && fs.statSync(p).isFile() && fs.statSync(p).size > 0;
+    try {
+        return fs.existsSync(p) && fs.statSync(p).isFile() && fs.statSync(p).size > 0;
+    } catch (e) {
+        return false;
+    }
+};
+
+const saveKeysContent = (content) => {
+    let savedAny = false;
+    const saveTargets = [
+        path.join(CACHE_DIR, 'prod.keys'),
+        path.join(path.dirname(DB_PATH), 'prod.keys'),
+        path.join(GAMES_DIR, 'prod.keys'),
+        path.join(__dirname, 'prod.keys')
+    ];
+
+    // If KEYS_PATH directory is writable, also save there
+    try {
+        if (KEYS_PATH) {
+            const targetDir = fs.existsSync(KEYS_PATH) && fs.statSync(KEYS_PATH).isDirectory() 
+                ? KEYS_PATH 
+                : path.dirname(KEYS_PATH);
+            if (fs.existsSync(targetDir)) {
+                saveTargets.unshift(path.join(targetDir, 'prod.keys'));
+            }
+        }
+    } catch (e) {}
+
+    for (const target of saveTargets) {
+        try {
+            const dir = path.dirname(target);
+            if (!fs.existsSync(dir)) {
+                fs.mkdirSync(dir, { recursive: true });
+            }
+            fs.writeFileSync(target, content, 'utf8');
+            console.log(`Successfully saved prod.keys to: ${target}`);
+            savedAny = true;
+        } catch (err) {
+            console.warn(`Could not save keys to ${target}: ${err.message}`);
+        }
+    }
+    return savedAny;
 };
 
 const resolvePythonCmd = () => {
@@ -274,34 +342,37 @@ app.post('/api/upload', (req, res) => {
     });
 });
 
-// API: Upload prod.keys
+// API: Upload prod.keys (supports JSON text payload and multipart upload)
 app.post('/api/upload-keys', (req, res) => {
-    if (!req.files || Object.keys(req.files).length === 0) {
-        return res.status(400).json({ error: 'No keys file was uploaded.' });
-    }
+    let keysContent = '';
 
-    const keysFile = req.files.keysFile;
-    
-    if (keysFile.name !== 'prod.keys' && keysFile.name !== 'keys.txt') {
-        return res.status(400).json({ error: 'Die Datei muss "prod.keys" heißen.' });
-    }
-
-    const destPath = getKeysPath();
-    const destDir = path.dirname(destPath);
-    
-    if (!fs.existsSync(destDir)) {
-        fs.mkdirSync(destDir, { recursive: true });
-    }
-
-    console.log(`Saving uploaded keys to: ${destPath}`);
-    
-    keysFile.mv(destPath, (err) => {
-        if (err) {
-            console.error(`Keys upload error: ${err}`);
-            return res.status(500).json({ error: 'Fehler beim Speichern der Keys.' });
+    // 1. Check if keys were sent as JSON { keysContent: "..." }
+    if (req.body && req.body.keysContent) {
+        keysContent = req.body.keysContent;
+    } 
+    // 2. Check if keys were sent as a file
+    else if (req.files && req.files.keysFile) {
+        const keysFile = req.files.keysFile;
+        if (keysFile.name !== 'prod.keys' && keysFile.name !== 'keys.txt') {
+            return res.status(400).json({ error: 'Die Datei muss "prod.keys" heißen.' });
         }
-        res.json({ message: 'Keys erfolgreich hochgeladen!' });
-    });
+        if (keysFile.data) {
+            keysContent = keysFile.data.toString('utf8');
+        } else if (keysFile.tempFilePath && fs.existsSync(keysFile.tempFilePath)) {
+            keysContent = fs.readFileSync(keysFile.tempFilePath, 'utf8');
+        }
+    }
+
+    if (!keysContent || keysContent.trim().length === 0) {
+        return res.status(400).json({ error: 'Keine gültigen Schlüsseldaten empfangen.' });
+    }
+
+    const saved = saveKeysContent(keysContent);
+    if (!saved) {
+        return res.status(500).json({ error: 'Fehler beim Speichern der Schlüssel auf der Festplatte.' });
+    }
+
+    res.json({ message: 'Keys erfolgreich gespeichert und persistiert!' });
 });
 
 const server = app.listen(PORT, () => {

@@ -856,7 +856,7 @@ function setupKeysUploadEvents() {
     });
 }
 
-function handleKeysUpload(file) {
+async function handleKeysUpload(file) {
     if (file.name !== 'prod.keys' && file.name !== 'keys.txt') {
         keysUploadStatus.innerHTML = `<span style="color: var(--neon-red)"><i class="fa-solid fa-triangle-exclamation"></i> ${t('keys.wrong_file')}</span>`;
         return;
@@ -864,24 +864,37 @@ function handleKeysUpload(file) {
 
     keysUploadStatus.innerHTML = `<i class="fa-solid fa-arrows-rotate fa-spin"></i> ${t('keys.uploading')}`;
 
-    const formData = new FormData();
-    formData.append('keysFile', file);
+    try {
+        const textContent = await file.text();
+        if (!textContent || textContent.trim().length === 0) {
+            throw new Error('Die hochgeladene Datei ist leer.');
+        }
 
-    fetch('/api/upload-keys', {
-        method: 'POST',
-        body: formData
-    })
-    .then(async response => {
-        const res = await response.json();
-        if (!response.ok) throw new Error(res.error || 'Upload failed');
-        
+        const response = await fetch('/api/upload-keys', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ keysContent: textContent })
+        });
+
+        const rawText = await response.text();
+        let res = {};
+        try {
+            res = JSON.parse(rawText);
+        } catch (e) {
+            throw new Error(rawText.substring(0, 120) || 'Ungültige Server-Antwort.');
+        }
+
+        if (!response.ok) {
+            throw new Error(res.error || 'Upload fehlgeschlagen');
+        }
+
         keysUploadStatus.innerHTML = `<span style="color: #2ec4b6"><i class="fa-solid fa-circle-check"></i> ${t('keys.success')}</span>`;
         setTimeout(() => {
+            showKeysOverlay(false);
             fetchGames();
-        }, 1500);
-    })
-    .catch(error => {
+        }, 1200);
+    } catch (error) {
         console.error(error);
         keysUploadStatus.innerHTML = `<span style="color: var(--neon-red)"><i class="fa-solid fa-triangle-exclamation"></i> ${error.message}</span>`;
-    });
+    }
 }
