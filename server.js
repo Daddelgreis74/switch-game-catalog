@@ -272,6 +272,131 @@ app.post('/api/scan', (req, res) => {
     });
 });
 
+// API: Get online rich metadata (description, genres, screenshots, release date)
+app.get('/api/metadata/:titleId', async (req, res) => {
+    const titleId = (req.params.titleId || '').trim().toLowerCase();
+    const lang = (req.query.lang || 'de').toLowerCase() === 'de' ? 'de' : 'en';
+
+    if (!titleId || titleId === 'unknown' || titleId.length < 16) {
+        return res.status(400).json({ error: 'Ungültige Title ID' });
+    }
+
+    const baseTitleId = titleId.substring(0, 13) + '000';
+    const db = loadDatabase();
+
+    // Check if we already have cached metadata in the database for this baseTitleId
+    let foundEntry = null;
+    for (const key of Object.keys(db)) {
+        if (db[key].titleId && db[key].titleId.toLowerCase().startsWith(titleId.substring(0, 13))) {
+            if (db[key].description && db[key].description.trim() !== '') {
+                foundEntry = db[key];
+                break;
+            }
+        }
+    }
+
+    if (foundEntry && foundEntry.description && foundEntry.metadataLang === lang) {
+        return res.json({
+            titleId: baseTitleId,
+            description: foundEntry.description,
+            categories: foundEntry.categories || [],
+            releaseDate: foundEntry.releaseDate || '',
+            screenshots: foundEntry.screenshots || []
+        });
+    }
+
+    try {
+        const fetchUrl = `https://not.ultranx.ru/${lang}/game/${baseTitleId.toUpperCase()}`;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+        const response = await fetch(fetchUrl, {
+            signal: controller.signal,
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+        });
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+            return res.status(404).json({ error: 'Keine Metadaten gefunden.' });
+        }
+
+        const html = await response.text();
+
+        // 1. Description from #gameDescription
+        let description = '';
+        const descMatch = html.match(/<pre[^>]*id="gameDescription"[^>]*>([\s\S]*?)<\/pre>/i);
+        if (descMatch && descMatch[1]) {
+            description = descMatch[1]
+                .replace(/<[^>]+>/g, '')
+                .replace(/&amp;/g, '&')
+                .replace(/&lt;/g, '<')
+                .replace(/&gt;/g, '>')
+                .replace(/&quot;/g, '"')
+                .replace(/&#39;/g, "'")
+                .trim();
+        }
+
+        // 2. Categories / Genres
+        const categories = [];
+        const catMatch = html.match(/<p><strong>(?:Categories|Kategorien):<\/strong>(.*?)<\/p>/i);
+        if (catMatch && catMatch[1]) {
+            const rawCats = catMatch[1].replace(/<[^>]+>/g, '').split(',');
+            for (const cat of rawCats) {
+                const c = cat.trim();
+                if (c && !categories.includes(c)) categories.push(c);
+            }
+        }
+
+        // 3. Release Date
+        let releaseDate = '';
+        const dateMatch = html.match(/<p><strong>(?:Release Date|Erscheinungsdatum):<\/strong>(.*?)<\/p>/i);
+        if (dateMatch && dateMatch[1]) {
+            releaseDate = dateMatch[1].replace(/<[^>]+>/g, '').trim();
+        }
+
+        // 4. Screenshots
+        const screenshots = [];
+        const screenMatches = html.match(/https:\/\/api\.ultranx\.ru\/assets\/images\/[a-f0-9]+\.webp/gi) || [];
+        for (const s of screenMatches) {
+            if (!screenshots.includes(s)) screenshots.push(s);
+            if (screenshots.length >= 12) break;
+        }
+
+        const metaResult = {
+            titleId: baseTitleId,
+            description,
+            categories,
+            releaseDate,
+            screenshots,
+            metadataLang: lang
+        };
+
+        // Cache into database for all entries matching this baseTitleId
+        let dbChanged = false;
+        for (const key of Object.keys(db)) {
+            if (db[key].titleId && db[key].titleId.toLowerCase().startsWith(titleId.substring(0, 13))) {
+                db[key].description = description;
+                db[key].categories = categories;
+                db[key].releaseDate = releaseDate;
+                db[key].screenshots = screenshots;
+                db[key].metadataLang = lang;
+                dbChanged = true;
+            }
+        }
+
+        if (dbChanged) {
+            saveDatabase(db);
+        }
+
+        res.json(metaResult);
+    } catch (err) {
+        console.warn(`Metadata fetch error for ${titleId}: ${err.message}`);
+        res.status(500).json({ error: 'Metadaten konnten nicht abgerufen werden: ' + err.message });
+    }
+});
+
 // API: Download game file
 app.get('/api/download/:dbKey', (req, res) => {
     const { dbKey } = req.params;

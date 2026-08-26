@@ -27,7 +27,7 @@
                 </div>
                 <div class="logo-title-wrap">
                     <h1>NSW <span>Catalog</span></h1>
-                    <span class="version-badge">v1.1.9</span>
+                    <span class="version-badge">v1.2.0</span>
                 </div>
             </div>
             
@@ -139,14 +139,36 @@
             <div class="modal-content">
                 <button class="modal-close-btn" id="modal-close"><i class="fa-solid fa-xmark"></i></button>
                 <div class="modal-header">
-                    <img id="modal-icon" src="images/fallback_icon.png" alt="Game Icon" class="modal-icon">
+                    <img id="modal-icon" src="favicon.svg" alt="Game Icon" class="modal-icon">
                     <div class="modal-title-area">
-                        <span class="badge" id="modal-type">Base Game</span>
+                        <div class="modal-header-top-row">
+                            <span class="badge" id="modal-type">Base Game</span>
+                            <span class="release-date-badge hidden" id="modal-release-date"></span>
+                        </div>
                         <h2 id="modal-title">-</h2>
                         <p id="modal-publisher">-</p>
+                        <div class="genre-badges" id="modal-genres">
+                            <!-- Genre badges injected here -->
+                        </div>
                     </div>
                 </div>
                 <div class="modal-body">
+                    <!-- About Game / Description Section -->
+                    <div class="description-section hidden" id="modal-description-section">
+                        <h3><i class="fa-solid fa-align-left"></i> <span data-i18n="modal.about_game">About this Game</span></h3>
+                        <div class="description-content" id="modal-description">
+                            <!-- Description text injected here -->
+                        </div>
+                    </div>
+
+                    <!-- Screenshot Gallery Section -->
+                    <div class="screenshots-section hidden" id="modal-screenshots-section">
+                        <h3><i class="fa-solid fa-images"></i> <span data-i18n="modal.screenshots">Screenshots</span></h3>
+                        <div class="screenshots-gallery" id="modal-screenshots">
+                            <!-- Thumbnails injected here -->
+                        </div>
+                    </div>
+
                     <div class="info-grid">
                         <div class="info-item">
                             <span class="info-label" data-i18n="modal.title_id">Title ID</span>
@@ -184,6 +206,13 @@
                     <button class="btn btn-secondary" onclick="hideModal()" data-i18n="modal.close">Close</button>
                 </div>
             </div>
+        </div>
+
+        <!-- Screenshot Lightbox Modal -->
+        <div class="lightbox-modal hidden" id="lightbox-modal">
+            <div class="lightbox-backdrop" id="lightbox-backdrop"></div>
+            <button class="lightbox-close" id="lightbox-close"><i class="fa-solid fa-xmark"></i></button>
+            <img src="" id="lightbox-img" alt="Screenshot Preview">
         </div>
 
         <!-- Footer with Trademark & Legal Disclaimer -->

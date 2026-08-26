@@ -64,6 +64,10 @@ const i18n = {
             nestedpath: "Path in ZIP",
             languages: "Supported Languages",
             no_languages: "No language metadata available",
+            about_game: "About this Game",
+            screenshots: "Screenshots & Previews",
+            loading_meta: "Loading game description...",
+            no_description: "No description available.",
             installed_files: "Installed Files",
             close: "Close",
             download: "Download",
@@ -162,6 +166,10 @@ const i18n = {
             nestedpath: "Pfad in ZIP",
             languages: "Unterstützte Sprachen",
             no_languages: "Keine Sprachen hinterlegt",
+            about_game: "Über dieses Spiel",
+            screenshots: "Screenshots & Vorschau",
+            loading_meta: "Lade Spielbeschreibung...",
+            no_description: "Keine Beschreibung verfügbar.",
             installed_files: "Installierte Dateien",
             close: "Schließen",
             download: "Herunterladen",
@@ -264,8 +272,18 @@ const modalFilepath = document.getElementById('modal-filepath');
 const modalNestedPath = document.getElementById('modal-nestedpath');
 const modalNestedItem = document.getElementById('modal-nested-item');
 const modalLanguages = document.getElementById('modal-languages');
-const modalDownloadBtn = document.getElementById('modal-download-btn');
-const modalDeleteBtn = document.getElementById('modal-delete-btn');
+const modalGenres = document.getElementById('modal-genres');
+const modalReleaseDate = document.getElementById('modal-release-date');
+const modalDescSection = document.getElementById('modal-description-section');
+const modalDesc = document.getElementById('modal-description');
+const modalScreensSection = document.getElementById('modal-screenshots-section');
+const modalScreenshots = document.getElementById('modal-screenshots');
+
+// Lightbox Elements
+const lightboxModal = document.getElementById('lightbox-modal');
+const lightboxBackdrop = document.getElementById('lightbox-backdrop');
+const lightboxClose = document.getElementById('lightbox-close');
+const lightboxImg = document.getElementById('lightbox-img');
 
 // Keys Upload Elements
 const keysOverlay = document.getElementById('keys-overlay');
@@ -350,12 +368,30 @@ function setupEventListeners() {
         uploadPanel.classList.toggle('collapsed');
     });
 
+    // Lightbox Close
+    if (lightboxClose) lightboxClose.addEventListener('click', closeLightbox);
+    if (lightboxBackdrop) lightboxBackdrop.addEventListener('click', closeLightbox);
+
     // Modal Close
     modalClose.addEventListener('click', hideModal);
     modalBackdrop.addEventListener('click', hideModal);
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') hideModal();
+        if (e.key === 'Escape') {
+            closeLightbox();
+            hideModal();
+        }
     });
+}
+
+function openLightbox(src) {
+    if (!lightboxModal || !lightboxImg) return;
+    lightboxImg.src = src;
+    lightboxModal.classList.remove('hidden');
+}
+
+function closeLightbox() {
+    if (!lightboxModal) return;
+    lightboxModal.classList.add('hidden');
 }
 
 // Fetch Games from Server
@@ -752,6 +788,83 @@ function showDetails(game) {
     modalSize.parentElement.style.display = 'none';
     modalFilepath.parentElement.style.display = 'none';
     modalNestedItem.style.display = 'none';
+
+    // Reset extended metadata sections
+    if (modalGenres) modalGenres.innerHTML = '';
+    if (modalReleaseDate) {
+        modalReleaseDate.textContent = '';
+        modalReleaseDate.classList.add('hidden');
+    }
+    if (modalDescSection) modalDescSection.classList.add('hidden');
+    if (modalDesc) modalDesc.innerHTML = '';
+    if (modalScreensSection) modalScreensSection.classList.add('hidden');
+    if (modalScreenshots) modalScreenshots.innerHTML = '';
+
+    // Function to render metadata
+    const renderMetadata = (meta) => {
+        if (!meta) return;
+
+        // Categories / Genres
+        if (modalGenres && meta.categories && meta.categories.length > 0) {
+            modalGenres.innerHTML = '';
+            meta.categories.forEach(cat => {
+                const tag = document.createElement('span');
+                tag.className = 'genre-badge';
+                tag.textContent = cat;
+                modalGenres.appendChild(tag);
+            });
+        }
+
+        // Release Date
+        if (modalReleaseDate && meta.releaseDate) {
+            modalReleaseDate.textContent = meta.releaseDate;
+            modalReleaseDate.classList.remove('hidden');
+        }
+
+        // Description
+        if (modalDescSection && modalDesc && meta.description && meta.description.trim() !== '') {
+            modalDesc.textContent = meta.description;
+            modalDescSection.classList.remove('hidden');
+        }
+
+        // Screenshots
+        if (modalScreensSection && modalScreenshots && meta.screenshots && meta.screenshots.length > 0) {
+            modalScreenshots.innerHTML = '';
+            meta.screenshots.forEach(src => {
+                const wrap = document.createElement('div');
+                wrap.className = 'screenshot-thumb-wrap';
+                wrap.innerHTML = `
+                    <img src="${src}" alt="Screenshot" class="screenshot-thumb" loading="lazy">
+                    <div class="zoom-icon"><i class="fa-solid fa-magnifying-glass-plus"></i></div>
+                `;
+                wrap.addEventListener('click', () => openLightbox(src));
+                modalScreenshots.appendChild(wrap);
+            });
+            modalScreensSection.classList.remove('hidden');
+        }
+    };
+
+    // If game already has cached description/genres in memory, render immediately
+    if (game.description || (game.categories && game.categories.length > 0)) {
+        renderMetadata(game);
+    } else {
+        const rawTitleId = (game.titleId || '').trim().toLowerCase();
+        if (rawTitleId && rawTitleId !== 'unknown' && rawTitleId.length >= 16) {
+            const baseId = rawTitleId.substring(0, 13) + '000';
+            fetch(`/api/metadata/${baseId}?lang=${currentLang}`)
+                .then(r => r.ok ? r.json() : null)
+                .then(meta => {
+                    if (meta) {
+                        game.description = meta.description;
+                        game.categories = meta.categories;
+                        game.releaseDate = meta.releaseDate;
+                        game.screenshots = meta.screenshots;
+                        renderMetadata(meta);
+                    }
+                })
+                .catch(() => {});
+        }
+    }
 
     // Languages Tags
     modalLanguages.innerHTML = '';

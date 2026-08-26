@@ -953,3 +953,206 @@ body {
     margin: 0 auto;
     opacity: 0.75;
 }
+
+/* Modal Enhanced Styles: Descriptions, Genres, Screenshots */
+.modal-content {
+    max-width: 780px !important;
+}
+
+.modal-header-top-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.release-date-badge {
+    font-size: 0.75rem;
+    font-family: var(--font-display);
+    color: var(--text-muted);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 2px 8px;
+    border-radius: 12px;
+}
+
+.genre-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.genre-badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--neon-blue);
+    background: rgba(0, 195, 227, 0.1);
+    border: 1px solid rgba(0, 195, 227, 0.25);
+    padding: 2px 9px;
+    border-radius: 6px;
+    letter-spacing: 0.3px;
+}
+
+.description-section,
+.screenshots-section {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-color);
+}
+
+.description-section h3,
+.screenshots-section h3 {
+    font-size: 0.95rem;
+    font-family: var(--font-display);
+    color: var(--text-main);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.description-section h3 i,
+.screenshots-section h3 i {
+    color: var(--neon-blue);
+}
+
+.description-content {
+    font-size: 0.9rem;
+    color: #c9d1d9;
+    line-height: 1.65;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 16px;
+    max-height: 220px;
+    overflow-y: auto;
+    white-space: pre-line;
+    word-break: break-word;
+}
+
+.description-content strong {
+    color: #fff;
+    font-weight: 700;
+}
+
+/* Screenshots Horizontal Gallery */
+.screenshots-gallery {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    padding-bottom: 10px;
+    scroll-behavior: smooth;
+}
+
+.screenshots-gallery::-webkit-scrollbar {
+    height: 6px;
+}
+
+.screenshots-gallery::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+}
+
+.screenshot-thumb-wrap {
+    flex: 0 0 200px;
+    height: 115px;
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+    cursor: pointer;
+    border: 1px solid var(--border-color);
+    background: #000;
+    transition: all 0.25s ease;
+}
+
+.screenshot-thumb-wrap:hover {
+    transform: scale(1.03);
+    border-color: var(--neon-blue);
+    box-shadow: 0 6px 18px rgba(0, 195, 227, 0.25);
+}
+
+.screenshot-thumb {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.screenshot-thumb-wrap .zoom-icon {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #fff;
+    font-size: 1.2rem;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+}
+
+.screenshot-thumb-wrap:hover .zoom-icon {
+    opacity: 1;
+}
+
+/* Lightbox Fullscreen Modal */
+.lightbox-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    transition: opacity 0.25s ease;
+}
+
+.lightbox-modal.hidden {
+    display: none;
+}
+
+.lightbox-backdrop {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.88);
+    backdrop-filter: blur(10px);
+}
+
+.lightbox-modal img {
+    position: relative;
+    max-width: 90vw;
+    max-height: 85vh;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8);
+    z-index: 2001;
+    object-fit: contain;
+}
+
+.lightbox-close {
+    position: absolute;
+    top: 25px;
+    right: 30px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #fff;
+    font-size: 1.4rem;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 2002;
+    transition: all 0.2s ease;
+}
+
+.lightbox-close:hover {
+    background: var(--neon-red);
+    border-color: var(--neon-red);
+    transform: scale(1.1);
+}
