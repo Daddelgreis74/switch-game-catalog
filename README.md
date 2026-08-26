@@ -1,5 +1,5 @@
 # NSW Game Catalog & Server
-
+[![Language: English](https://img.shields.io/badge/Language-English-blue.svg)](README.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Docker Image](https://img.shields.io/badge/Docker-ghcr.io-blue?logo=docker)](https://github.com/Daddelgreis74/switch-game-catalog/pkgs/container/switch-game-catalog)
 
