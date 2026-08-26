@@ -114,6 +114,12 @@ Install NSW Game Catalog directly through the TrueNAS SCALE web interface:
 | `/mnt/tank/apps/switch-catalog/keys` | `/config` | ✅ *Yes* |
 | `/mnt/tank/apps/switch-catalog/cache` | `/app/public/cache` | ❌ *No* |
 
+#### 7️⃣ Security & Access Permissions (Run As User / Group):
+| Setting | Value (Copy-Paste) | Description |
+| :--- | :--- | :--- |
+| **User ID (UID)** | `568` | Standard TrueNAS `apps` user |
+| **Group ID (GID)** | `568` | Standard TrueNAS `apps` group |
+
 ---
 
 ### Option 2: Docker Compose (TrueNAS SCALE 24.10+ / Linux)

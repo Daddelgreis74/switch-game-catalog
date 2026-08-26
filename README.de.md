@@ -1,4 +1,4 @@
-﻿# NSW Game Catalog & Server
+# NSW Game Catalog & Server
 
 [![Language: English](https://img.shields.io/badge/Language-English-blue.svg)](README.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -113,6 +113,12 @@ Installiere den NSW Game Catalog direkt über das TrueNAS SCALE Web-Interface:
 | `/mnt/tank/Spiele/Switch` | `/games` | ❌ *Nein* |
 | `/mnt/tank/apps/switch-catalog/keys` | `/config` | ✅ *Ja* |
 | `/mnt/tank/apps/switch-catalog/cache` | `/app/public/cache` | ❌ *Nein* |
+
+#### 7️⃣ Sicherheits- & Zugriffsberechtigungen (Run As User / Group):
+| Einstellung | Wert (Copy-Paste) | Beschreibung |
+| :--- | :--- | :--- |
+| **User ID (UID)** | `568` | Standard TrueNAS `apps` Benutzer |
+| **Group ID (GID)** | `568` | Standard TrueNAS `apps` Gruppe |
 
 ---
 
