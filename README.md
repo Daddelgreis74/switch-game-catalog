@@ -55,36 +55,68 @@ Die Datei muss den Namen **`prod.keys`** tragen und im System konfiguriert werde
 
 Die App ist für Docker optimiert. Das Dockerfile baut `hactool` nativ für Linux und installiert Python 3 für den Scanner-Prozess.
 
-### docker-compose.yml (Beispiel)
+### Option 1: TrueNAS SCALE Custom App (Web-Oberfläche)
+
+Du kannst den Switch Game Catalog direkt über die TrueNAS SCALE Oberfläche als **Custom App** installieren:
+
+1. **Vorbereitung:**
+   - Erstelle ein Verzeichnis für deine `prod.keys`, z. B. `/mnt/tank/apps/switch-catalog/keys/` und lege die Datei dort ab.
+   - Erstelle ein Verzeichnis für den Cover-Cache, z. B. `/mnt/tank/apps/switch-catalog/cache/`.
+   - Halte den Pfad zu deinen Switch-Spielen bereit, z. B. `/mnt/tank/Spiele/Switch/`.
+
+2. **App anlegen:**
+   - Navigiere in TrueNAS SCALE zu **Apps** ➜ **Discover Apps** ➜ **Custom App** (oben rechts).
+   - **Application Name:** `switch-game-catalog`
+
+3. **Container Image:**
+   - **Image repository:** `ghcr.io/daddelgreis74/switch-game-catalog`
+   - **Image tag:** `latest`
+   - **Image Pull Policy:** `Always`
+
+4. **Environment Variables:**
+   - `PORT`: `3000`
+   - `GAMES_DIR`: `/games`
+   - `KEYS_PATH`: `/config/prod.keys`
+
+5. **Port Forwarding:**
+   - **Container Port:** `3000`
+   - **Node Port / Web Port:** `3000` *(oder ein beliebiger freier Port)*
+
+6. **Storage (Host Path Volumes):**
+   - **Spiele:** Host Path `/mnt/tank/Spiele/Switch` ➜ Mount Path `/games`
+   - **Keys:** Host Path `/mnt/tank/apps/switch-catalog/keys` ➜ Mount Path `/config` *(Read-Only aktivieren)*
+   - **Cache:** Host Path `/mnt/tank/apps/switch-catalog/cache` ➜ Mount Path `/app/public/cache`
+
+---
+
+### Option 2: Docker Compose (TrueNAS SCALE 24.10+ / Linux)
 
 ```yaml
 version: '3.8'
 
 services:
-  switch-library:
-    build: .
+  switch-game-catalog:
+    image: ghcr.io/daddelgreis74/switch-game-catalog:latest
     container_name: switch-game-catalog
+    restart: unless-stopped
     ports:
       - "3000:3000"
+    environment:
+      - PORT=3000
+      - GAMES_DIR=/games
+      - KEYS_PATH=/config/prod.keys
     volumes:
       # Pfad zu deinen Switch-Spielen
       - /mnt/tank/Spiele/Switch:/games
       # Pfad zu deinen prod.keys (schreibgeschützt)
       - /mnt/tank/apps/switch-catalog/keys:/config:ro
-      # Persistierung der Datenbank
-      - ./games_db.json:/app/games_db.json
-      # Persistierung der extrahierten Icons
-      - ./public/cache:/app/public/cache
-    environment:
-      - PORT=3000
-      - GAMES_DIR=/games
-      - KEYS_PATH=/config/prod.keys
-    restart: unless-stopped
+      # Persistierung der extrahierten Icons / Cache
+      - /mnt/tank/apps/switch-catalog/cache:/app/public/cache
 ```
 
-### Starten im Docker:
+#### Starten via Compose:
 ```bash
-docker-compose up -d --build
+docker-compose up -d
 ```
 
 ---
