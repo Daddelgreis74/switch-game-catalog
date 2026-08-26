@@ -7,6 +7,7 @@ import subprocess
 import shutil
 import tempfile
 import xml.etree.ElementTree as ET
+import re
 
 sys.stdout.reconfigure(encoding='utf-8')
 
@@ -100,7 +101,13 @@ def parse_pfs0_header(stream):
         print(f"Error parsing PFS0 header: {e}", file=sys.stderr)
         return None
 
-def extract_and_parse_control(stream, pfs0_files, hactool_path, keys_path, cache_dir, temp_dir):
+def clean_title_from_filename(filename):
+    base = os.path.splitext(os.path.basename(filename))[0]
+    cleaned = re.sub(r'\[.*?\]|\(.*?\)', '', base).replace('_', ' ').strip()
+    cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+    return cleaned if cleaned else base
+
+def extract_and_parse_control(stream, pfs0_files, hactool_path, keys_path, cache_dir, temp_dir, file_path=None):
     true_title_id = None
     # Check for XML / CNMT first
     for name, entry in pfs0_files.items():

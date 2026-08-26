@@ -431,6 +431,16 @@ function groupGames(flatGames) {
         main.updatesCount = files.filter(f => f.type === 'Update').length;
         main.dlcsCount = files.filter(f => f.type === 'DLC').length;
         main.hasBaseGame = !!baseGame;
+
+        // Inherit icon and publisher if base game has none
+        if (!main.icon) {
+            const fileWithIcon = files.find(f => f.icon);
+            if (fileWithIcon) main.icon = fileWithIcon.icon;
+        }
+        if (!main.publisher || main.publisher === 'Unknown Publisher') {
+            const fileWithPub = files.find(f => f.publisher && f.publisher !== 'Unknown Publisher');
+            if (fileWithPub) main.publisher = fileWithPub.publisher;
+        }
         
         grouped.push(main);
     });
