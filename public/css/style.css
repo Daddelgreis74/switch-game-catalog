@@ -64,6 +64,12 @@ body {
     gap: 15px;
 }
 
+.logo-title-wrap {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+}
+
 .logo-area h1 {
     font-family: var(--font-display);
     font-size: 2.2rem;
@@ -75,6 +81,19 @@ body {
     background: linear-gradient(135deg, var(--neon-blue), var(--neon-red));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
+}
+
+.version-badge {
+    font-family: var(--font-display);
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: rgba(0, 195, 227, 0.12);
+    color: var(--neon-blue);
+    border: 1px solid rgba(0, 195, 227, 0.3);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
 }
 
 /* Custom Switch Logo */

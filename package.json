@@ -1,6 +1,6 @@
 {
   "name": "switch-game-catalog",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Nintendo Switch Game Catalog and Server",
   "main": "server.js",
   "scripts": {
