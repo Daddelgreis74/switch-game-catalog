@@ -890,3 +890,66 @@ body {
     color: #fff;
     box-shadow: 0 0 10px rgba(255, 60, 95, 0.4);
 }
+
+/* Language Switcher */
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.lang-switch {
+    display: inline-flex;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 3px 6px;
+    gap: 4px;
+}
+
+.lang-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 0.85rem;
+    padding: 4px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.lang-btn:hover {
+    color: var(--text-main);
+}
+
+.lang-btn.active {
+    background: linear-gradient(135deg, var(--neon-blue), rgba(0, 195, 227, 0.7));
+    color: #fff;
+    box-shadow: 0 0 10px rgba(0, 195, 227, 0.3);
+}
+
+.lang-divider {
+    color: rgba(255, 255, 255, 0.2);
+    font-size: 0.8rem;
+    user-select: none;
+}
+
+/* App Footer & Disclaimer */
+.app-footer {
+    margin-top: 50px;
+    padding: 30px 15px;
+    border-top: 1px solid var(--border-color);
+    text-align: center;
+}
+
+.disclaimer-text {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    line-height: 1.6;
+    max-width: 800px;
+    margin: 0 auto;
+    opacity: 0.75;
+}

@@ -1,8 +1,9 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NSW Game Catalog & Library</title>
     <!-- Favicon & Bookmark Icons -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="alternate icon" type="image/png" href="/favicon.png">
@@ -25,7 +26,7 @@
                     <span class="right-joycon"></span>
                 </div>
                 <div class="logo-title-wrap">
-                    <h1>Switch <span>Library</span></h1>
+                    <h1>NSW <span>Catalog</span></h1>
                     <span class="version-badge">v1.1.0</span>
                 </div>
             </div>
@@ -35,24 +36,30 @@
                     <i class="fa-solid fa-gamepad icon-neon-blue"></i>
                     <div>
                         <span class="stat-value" id="stat-count">0</span>
-                        <span class="stat-label">Spiele</span>
+                        <span class="stat-label" data-i18n="stats.games">Games</span>
                     </div>
                 </div>
                 <div class="stat-card">
                     <i class="fa-solid fa-hard-drive icon-neon-red"></i>
                     <div>
                         <span class="stat-value" id="stat-size">0 GB</span>
-                        <span class="stat-label">Gesamtgröße</span>
+                        <span class="stat-label" data-i18n="stats.total_size">Total Size</span>
                     </div>
                 </div>
             </div>
 
             <div class="header-actions">
+                <!-- Language Switcher -->
+                <div class="lang-switch" id="lang-switch">
+                    <button class="lang-btn active" id="lang-btn-en" data-lang="en">EN</button>
+                    <span class="lang-divider">|</span>
+                    <button class="lang-btn" id="lang-btn-de" data-lang="de">DE</button>
+                </div>
                 <button class="btn btn-secondary" id="toggle-upload-btn">
-                    <i class="fa-solid fa-cloud-arrow-up"></i> Upload
+                    <i class="fa-solid fa-cloud-arrow-up"></i> <span data-i18n="header.upload">Upload</span>
                 </button>
                 <button class="btn btn-primary" id="scan-btn">
-                    <i class="fa-solid fa-arrows-rotate"></i> Bibliothek scannen
+                    <i class="fa-solid fa-arrows-rotate"></i> <span data-i18n="header.scan">Scan Library</span>
                 </button>
             </div>
         </header>
@@ -61,10 +68,10 @@
         <section class="upload-panel collapsed" id="upload-panel">
             <div class="upload-zone" id="drop-zone">
                 <i class="fa-solid fa-cloud-arrow-up upload-icon"></i>
-                <h3>Spiele hochladen</h3>
-                <p>Ziehe deine Spieldateien (`.nsp`, `.nsz`, `.zip`, `.xci`) hierher oder klicke zum Durchsuchen</p>
+                <h3 data-i18n="upload.title">Upload Games</h3>
+                <p data-i18n="upload.description">Drag & drop game files (.nsp, .nsz, .zip, .xci) here or click to browse</p>
                 <input type="file" id="file-input" accept=".nsp,.nsz,.zip,.xci" multiple style="display: none;">
-                <button class="btn btn-secondary select-file-btn" onclick="document.getElementById('file-input').click()">Dateien auswählen</button>
+                <button class="btn btn-secondary select-file-btn" onclick="document.getElementById('file-input').click()" data-i18n="upload.select_btn">Select Files</button>
             </div>
             
             <div class="upload-progress-container hidden" id="upload-progress-container">
@@ -75,7 +82,7 @@
                 <div class="progress-bar-wrapper">
                     <div class="progress-bar-fill" id="progress-bar-fill"></div>
                 </div>
-                <div class="upload-status" id="upload-status">Hochladen...</div>
+                <div class="upload-status" id="upload-status" data-i18n="upload.uploading">Uploading...</div>
             </div>
         </section>
 
@@ -85,27 +92,27 @@
             <div class="filter-bar">
                 <div class="search-box">
                     <i class="fa-solid fa-magnifying-glass"></i>
-                    <input type="text" id="search-input" placeholder="Suche nach Spielname oder Title ID...">
+                    <input type="text" id="search-input" data-i18n-placeholder="filter.search_placeholder" placeholder="Search by game title or Title ID...">
                 </div>
 
                 <div class="filters">
                     <div class="filter-group">
-                        <label for="type-filter"><i class="fa-solid fa-filter"></i> Typ:</label>
+                        <label for="type-filter"><i class="fa-solid fa-filter"></i> <span data-i18n="filter.type_label">Type:</span></label>
                         <select id="type-filter">
-                            <option value="all">Alle Typen</option>
-                            <option value="Base Game">Hauptspiele</option>
-                            <option value="Update">Updates</option>
-                            <option value="DLC">DLCs</option>
+                            <option value="all" data-i18n="filter.all_types">All Types</option>
+                            <option value="Base Game" data-i18n="filter.base_games">Base Games</option>
+                            <option value="Update" data-i18n="filter.updates">Updates</option>
+                            <option value="DLC" data-i18n="filter.dlcs">DLCs</option>
                         </select>
                     </div>
 
                     <div class="filter-group">
-                        <label for="sort-select"><i class="fa-solid fa-sort"></i> Sortierung:</label>
+                        <label for="sort-select"><i class="fa-solid fa-sort"></i> <span data-i18n="filter.sort_label">Sort:</span></label>
                         <select id="sort-select">
-                            <option value="title-asc">Name (A-Z)</option>
-                            <option value="title-desc">Name (Z-A)</option>
-                            <option value="size-desc">Größe (Absteigend)</option>
-                            <option value="size-asc">Größe (Aufsteigend)</option>
+                            <option value="title-asc" data-i18n="filter.sort_title_asc">Title (A-Z)</option>
+                            <option value="title-desc" data-i18n="filter.sort_title_desc">Title (Z-A)</option>
+                            <option value="size-desc" data-i18n="filter.sort_size_desc">Size (Largest)</option>
+                            <option value="size-asc" data-i18n="filter.sort_size_asc">Size (Smallest)</option>
                         </select>
                     </div>
                 </div>
@@ -116,12 +123,12 @@
                 <!-- Placeholder / Loading indicator -->
                 <div class="loading-state" id="loading-state">
                     <div class="spinner"></div>
-                    <p>Lade Spiele-Bibliothek...</p>
+                    <p data-i18n="loading.text">Loading game library...</p>
                 </div>
                 <div class="empty-state hidden" id="empty-state">
                     <i class="fa-solid fa-box-open"></i>
-                    <h3>Keine Spiele gefunden</h3>
-                    <p>Füge Spieldateien in `Gamesordner` hinzu und klicke auf "Bibliothek scannen".</p>
+                    <h3 data-i18n="empty.title">No games found</h3>
+                    <p data-i18n="empty.description">Add game files to your games folder and click "Scan Library".</p>
                 </div>
             </div>
         </main>
@@ -142,42 +149,49 @@
                 <div class="modal-body">
                     <div class="info-grid">
                         <div class="info-item">
-                            <span class="info-label">Title ID</span>
+                            <span class="info-label" data-i18n="modal.title_id">Title ID</span>
                             <span class="info-value code" id="modal-title-id">0100000000010000</span>
                         </div>
                         <div class="info-item">
-                            <span class="info-label">Dateigröße</span>
+                            <span class="info-label" data-i18n="modal.size">File Size</span>
                             <span class="info-value" id="modal-size">5.7 GB</span>
                         </div>
                         <div class="info-item full-width">
-                            <span class="info-label">Dateipfad</span>
+                            <span class="info-label" data-i18n="modal.filepath">File Path</span>
                             <span class="info-value code" id="modal-filepath">D:\NintendoGames\Mario.zip</span>
                         </div>
                         <div class="info-item full-width" id="modal-nested-item">
-                            <span class="info-label">Pfad in ZIP</span>
+                            <span class="info-label" data-i18n="modal.nestedpath">Path in ZIP</span>
                             <span class="info-value code" id="modal-nestedpath">-</span>
                         </div>
                     </div>
                     
                     <div class="languages-section">
-                        <h3>Unterstützte Sprachen</h3>
+                        <h3 data-i18n="modal.languages">Supported Languages</h3>
                         <div class="languages-tags" id="modal-languages">
                             <!-- Tags will be injected here -->
                         </div>
                     </div>
 
                     <div class="files-list-section">
-                        <h3><i class="fa-solid fa-folder-open"></i> Installierte Dateien</h3>
+                        <h3><i class="fa-solid fa-folder-open"></i> <span data-i18n="modal.installed_files">Installed Files</span></h3>
                         <div class="files-container" id="modal-files-container">
                             <!-- File rows will be dynamically injected here -->
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer" style="justify-content: flex-end;">
-                    <button class="btn btn-secondary" onclick="hideModal()">Schließen</button>
+                    <button class="btn btn-secondary" onclick="hideModal()" data-i18n="modal.close">Close</button>
                 </div>
             </div>
         </div>
+
+        <!-- Footer with Trademark & Legal Disclaimer -->
+        <footer class="app-footer">
+            <p class="disclaimer-text" data-i18n="footer.disclaimer">
+                Nintendo and Nintendo Switch are registered trademarks of Nintendo Co., Ltd. NSW Game Catalog is an independent open-source application and is not affiliated with, endorsed by, or sponsored by Nintendo.
+            </p>
+        </footer>
     </div>
 
     <!-- Keys Upload Modal Overlay -->
@@ -185,17 +199,17 @@
         <div class="modal-backdrop"></div>
         <div class="modal-content" style="max-width: 500px; text-align: center; border: 1.5px solid var(--neon-red); box-shadow: 0 0 30px rgba(255, 60, 95, 0.3);">
             <div class="modal-header" style="justify-content: center; border-bottom: 1px solid rgba(255, 60, 95, 0.2);">
-                <h2 style="color: var(--neon-red); margin: 0; display: inline-flex; align-items: center; gap: 10px;"><i class="fa-solid fa-key"></i> Konsolenschlüssel fehlen</h2>
+                <h2 style="color: var(--neon-red); margin: 0; display: inline-flex; align-items: center; gap: 10px;" data-i18n="keys.title"><i class="fa-solid fa-key"></i> Console Keys Missing</h2>
             </div>
             <div class="modal-body" style="padding: 20px 0;">
-                <p style="margin-bottom: 20px; line-height: 1.6; color: var(--text-main);">
-                    Um die Metadaten deiner Spiele entschlüsseln zu können, benötigt dieser Server deine <strong>prod.keys</strong>.
+                <p style="margin-bottom: 20px; line-height: 1.6; color: var(--text-main);" data-i18n="keys.description">
+                    To decrypt game metadata and extract title covers, this server requires your <strong>prod.keys</strong>.
                 </p>
                 <div class="drop-zone" id="keys-drop-zone" style="height: 180px; border: 2px dashed rgba(255, 60, 95, 0.3); background: rgba(255, 60, 95, 0.02);">
                     <div class="drop-zone-content">
                         <i class="fa-solid fa-cloud-arrow-up" style="color: var(--neon-red); font-size: 2.5rem; margin-bottom: 15px;"></i>
-                        <p>Zieh deine <strong>prod.keys</strong> hierher</p>
-                        <span style="font-size: 0.8rem; color: var(--text-muted);">oder klicke zum Auswählen</span>
+                        <p data-i18n="keys.dropzone">Drag & drop your <strong>prod.keys</strong> here</p>
+                        <span style="font-size: 0.8rem; color: var(--text-muted);" data-i18n="keys.browse">or click to select</span>
                     </div>
                     <input type="file" id="keys-file-input" accept=".keys,*" style="display: none;">
                 </div>

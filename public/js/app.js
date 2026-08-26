@@ -1,6 +1,226 @@
 // Global state
 let gamesData = {};
 let filteredGames = [];
+let currentLang = 'en';
+
+// I18N Translations Dictionary
+const i18n = {
+    en: {
+        app_title: "NSW Game Catalog & Library",
+        stats: {
+            games: "Games",
+            total_size: "Total Size"
+        },
+        header: {
+            upload: "Upload",
+            scan: "Scan Library",
+            scanning: "Scanning directory..."
+        },
+        upload: {
+            title: "Upload Games",
+            description: "Drag & drop game files (.nsp, .nsz, .zip, .xci) here or click to browse",
+            select_btn: "Select Files",
+            uploading: "Uploading...",
+            preparing: "Preparing upload...",
+            success: "Upload successful! Auto-scan running...",
+            queue_remaining: " ({count} remaining in queue)",
+            progress_status: "{uploaded} MB of {total} MB uploaded",
+            network_error: "Network error during upload",
+            error_prefix: "Error: "
+        },
+        filter: {
+            search_placeholder: "Search by game title, publisher, or Title ID...",
+            type_label: "Type:",
+            all_types: "All Types",
+            base_games: "Base Games",
+            updates: "Updates",
+            dlcs: "DLCs",
+            sort_label: "Sort:",
+            sort_title_asc: "Title (A-Z)",
+            sort_title_desc: "Title (Z-A)",
+            sort_size_desc: "Size (Largest)",
+            sort_size_asc: "Size (Smallest)"
+        },
+        loading: {
+            text: "Loading game library...",
+            error_title: "Error Loading Library",
+            scan_failed: "Scan process failed.",
+            scan_error: "Scan error: "
+        },
+        empty: {
+            title: "No games found",
+            description: "Add game files to your games folder and click \"Scan Library\"."
+        },
+        card: {
+            base_game: "Base Game",
+            update: "Update",
+            dlc: "+ {count} DLC",
+            details_btn: "Details & Files"
+        },
+        modal: {
+            title_id: "Title ID",
+            size: "File Size",
+            filepath: "File Path",
+            nestedpath: "Path in ZIP",
+            languages: "Supported Languages",
+            no_languages: "No language metadata available",
+            installed_files: "Installed Files",
+            close: "Close",
+            download: "Download",
+            delete: "Delete",
+            delete_confirm: "Are you sure you want to permanently delete \"{filename}\" from disk?",
+            delete_success: "File successfully deleted.",
+            delete_error: "Failed to delete file."
+        },
+        footer: {
+            disclaimer: "Nintendo and Nintendo Switch are registered trademarks of Nintendo Co., Ltd. NSW Game Catalog is an independent open-source application and is not affiliated with, endorsed by, or sponsored by Nintendo."
+        },
+        keys: {
+            title: "Console Keys Missing",
+            description: "To decrypt game metadata and extract title covers, this server requires your <strong>prod.keys</strong>.",
+            dropzone: "Drag & drop your <strong>prod.keys</strong> here",
+            browse: "or click to select",
+            wrong_file: "Error: File must be named \"prod.keys\"!",
+            uploading: "Uploading keys...",
+            success: "Keys loaded! Starting scan..."
+        },
+        languages: {
+            "Japanese": "Japanese (JA)",
+            "AmericanEnglish": "English (US)",
+            "BritishEnglish": "English (UK)",
+            "French": "French (FR)",
+            "German": "German (DE)",
+            "Italian": "Italian (IT)",
+            "Spanish": "Spanish (ES)",
+            "Dutch": "Dutch (NL)",
+            "Portuguese": "Portuguese (PT)",
+            "Russian": "Russian (RU)",
+            "Korean": "Korean (KO)",
+            "ChineseSimplified": "Chinese (Simplified)",
+            "TraditionalChinese": "Chinese (Traditional)",
+            "CanadianFrench": "French (Canada)",
+            "LatinAmericanSpanish": "Spanish (Latin America)",
+            "SimplifiedChinese": "Chinese (Simplified)"
+        }
+    },
+    de: {
+        app_title: "NSW Game Catalog & Spielebibliothek",
+        stats: {
+            games: "Spiele",
+            total_size: "Gesamtgröße"
+        },
+        header: {
+            upload: "Upload",
+            scan: "Bibliothek scannen",
+            scanning: "Scanne Verzeichnis..."
+        },
+        upload: {
+            title: "Spiele hochladen",
+            description: "Ziehe deine Spieldateien (.nsp, .nsz, .zip, .xci) hierher oder klicke zum Durchsuchen",
+            select_btn: "Dateien auswählen",
+            uploading: "Hochladen...",
+            preparing: "Bereite Upload vor...",
+            success: "Upload erfolgreich! Auto-Scan läuft...",
+            queue_remaining: " (Noch {count} in der Warteschlange)",
+            progress_status: "{uploaded} MB von {total} MB hochgeladen",
+            network_error: "Netzwerkfehler beim Upload",
+            error_prefix: "Fehler: "
+        },
+        filter: {
+            search_placeholder: "Suche nach Spielname, Publisher oder Title ID...",
+            type_label: "Typ:",
+            all_types: "Alle Typen",
+            base_games: "Hauptspiele",
+            updates: "Updates",
+            dlcs: "DLCs",
+            sort_label: "Sortierung:",
+            sort_title_asc: "Name (A-Z)",
+            sort_title_desc: "Name (Z-A)",
+            sort_size_desc: "Größe (Absteigend)",
+            sort_size_asc: "Größe (Aufsteigend)"
+        },
+        loading: {
+            text: "Lade Spiele-Bibliothek...",
+            error_title: "Fehler beim Laden",
+            scan_failed: "Scan-Vorgang fehlgeschlagen.",
+            scan_error: "Fehler beim Scannen: "
+        },
+        empty: {
+            title: "Keine Spiele gefunden",
+            description: "Füge Spieldateien in das Spieleverzeichnis ein und klicke auf \"Bibliothek scannen\"."
+        },
+        card: {
+            base_game: "Hauptspiel",
+            update: "Update",
+            dlc: "+ {count} DLC",
+            details_btn: "Details & Dateien"
+        },
+        modal: {
+            title_id: "Title ID",
+            size: "Dateigröße",
+            filepath: "Dateipfad",
+            nestedpath: "Pfad in ZIP",
+            languages: "Unterstützte Sprachen",
+            no_languages: "Keine Sprachen hinterlegt",
+            installed_files: "Installierte Dateien",
+            close: "Schließen",
+            download: "Herunterladen",
+            delete: "Löschen",
+            delete_confirm: "Bist du sicher, dass du die Datei \"{filename}\" permanent von der Festplatte löschen möchtest?",
+            delete_success: "Datei erfolgreich gelöscht.",
+            delete_error: "Fehler beim Löschen der Datei."
+        },
+        footer: {
+            disclaimer: "Nintendo und Nintendo Switch sind eingetragene Marken der Nintendo Co., Ltd. NSW Game Catalog ist eine unabhängige Open-Source-Anwendung und steht in keiner Verbindung zu Nintendo."
+        },
+        keys: {
+            title: "Konsolenschlüssel fehlen",
+            description: "Um die Metadaten deiner Spiele entschlüsseln zu können, benötigt dieser Server deine <strong>prod.keys</strong>.",
+            dropzone: "Zieh deine <strong>prod.keys</strong> hierher",
+            browse: "oder klicke zum Auswählen",
+            wrong_file: "Fehler: Datei muss \"prod.keys\" heißen!",
+            uploading: "Lade Keys hoch...",
+            success: "Keys geladen! Starte Scan..."
+        },
+        languages: {
+            "Japanese": "Japanisch (JA)",
+            "AmericanEnglish": "Englisch (US)",
+            "BritishEnglish": "Englisch (UK)",
+            "French": "Französisch (FR)",
+            "German": "Deutsch (DE)",
+            "Italian": "Italienisch (IT)",
+            "Spanish": "Spanisch (ES)",
+            "Dutch": "Niederländisch (NL)",
+            "Portuguese": "Portugiesisch (PT)",
+            "Russian": "Russisch (RU)",
+            "Korean": "Koreanisch (KO)",
+            "ChineseSimplified": "Chinesisch (Vereinfacht)",
+            "TraditionalChinese": "Chinesisch (Traditionell)",
+            "CanadianFrench": "Französisch (Kanada)",
+            "LatinAmericanSpanish": "Spanisch (Lateinamerika)",
+            "SimplifiedChinese": "Chinesisch (Vereinfacht)"
+        }
+    }
+};
+
+// Helper: Get nested i18n text
+function t(path, replacements = {}) {
+    const keys = path.split('.');
+    let val = i18n[currentLang];
+    for (const k of keys) {
+        if (val && val[k] !== undefined) {
+            val = val[k];
+        } else {
+            return path;
+        }
+    }
+    if (typeof val === 'string') {
+        Object.entries(replacements).forEach(([k, v]) => {
+            val = val.replace(`{${k}}`, v);
+        });
+    }
+    return val;
+}
 
 // DOM Elements
 const gamesGrid = document.getElementById('games-grid');
@@ -16,6 +236,10 @@ const sortSelect = document.getElementById('sort-select');
 const scanBtn = document.getElementById('scan-btn');
 const toggleUploadBtn = document.getElementById('toggle-upload-btn');
 const uploadPanel = document.getElementById('upload-panel');
+
+// Language Switcher Elements
+const langBtnEn = document.getElementById('lang-btn-en');
+const langBtnDe = document.getElementById('lang-btn-de');
 
 // Upload Elements
 const dropZone = document.getElementById('drop-zone');
@@ -49,7 +273,6 @@ const keysDropZone = document.getElementById('keys-drop-zone');
 const keysFileInput = document.getElementById('keys-file-input');
 const keysUploadStatus = document.getElementById('keys-upload-status');
 
-
 // API Endpoints
 const API_GAMES = '/api/games';
 const API_SCAN = '/api/scan';
@@ -57,14 +280,63 @@ const API_UPLOAD = '/api/upload';
 
 // Init
 document.addEventListener('DOMContentLoaded', () => {
+    initLanguage();
     fetchGames();
     setupEventListeners();
     setupUploadEvents();
     setupKeysUploadEvents();
 });
 
+// Initialize Language Selection
+function initLanguage() {
+    const savedLang = localStorage.getItem('nsw_lang');
+    if (savedLang && (savedLang === 'en' || savedLang === 'de')) {
+        currentLang = savedLang;
+    } else {
+        const browserLang = (navigator.language || navigator.userLanguage || '').toLowerCase();
+        currentLang = browserLang.startsWith('de') ? 'de' : 'en';
+    }
+    applyLanguage(currentLang);
+}
+
+// Switch and Apply Language
+function setLanguage(lang) {
+    if (lang !== 'en' && lang !== 'de') return;
+    currentLang = lang;
+    localStorage.setItem('nsw_lang', lang);
+    applyLanguage(lang);
+    applyFiltersAndSort(); // Re-render games grid with updated texts
+}
+
+function applyLanguage(lang) {
+    document.documentElement.lang = lang;
+    document.title = t('app_title');
+
+    // Update Language Buttons
+    if (langBtnEn && langBtnDe) {
+        langBtnEn.classList.toggle('active', lang === 'en');
+        langBtnDe.classList.toggle('active', lang === 'de');
+    }
+
+    // Translate all elements with data-i18n attribute
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        el.innerHTML = t(key);
+    });
+
+    // Translate all placeholders with data-i18n-placeholder
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+        const key = el.getAttribute('data-i18n-placeholder');
+        el.placeholder = t(key);
+    });
+}
+
 // Event Listeners
 function setupEventListeners() {
+    // Language buttons
+    if (langBtnEn) langBtnEn.addEventListener('click', () => setLanguage('en'));
+    if (langBtnDe) langBtnDe.addEventListener('click', () => setLanguage('de'));
+
     // Search, Filter & Sort
     searchInput.addEventListener('input', applyFiltersAndSort);
     typeFilter.addEventListener('change', applyFiltersAndSort);
@@ -107,7 +379,7 @@ async function fetchGames() {
     } catch (error) {
         console.error(error);
         showLoading(false);
-        gamesGrid.innerHTML = `<div class="empty-state"><i class="fa-solid fa-triangle-exclamation" style="color: var(--neon-red)"></i><h3>Fehler beim Laden</h3><p>${error.message}</p></div>`;
+        gamesGrid.innerHTML = `<div class="empty-state"><i class="fa-solid fa-triangle-exclamation" style="color: var(--neon-red)"></i><h3>${t('loading.error_title')}</h3><p>${error.message}</p></div>`;
     }
 }
 
@@ -141,7 +413,6 @@ function groupGames(flatGames) {
         if (game.titleId && game.titleId !== 'unknown' && game.titleId.length >= 13) {
             baseTitleId = game.titleId.substring(0, 13).toLowerCase() + '000';
         } else {
-            // Give it a unique group so it doesn't group with other unknown games
             baseTitleId = 'unknown_' + (game.dbKey || Math.random().toString());
         }
         
@@ -153,16 +424,10 @@ function groupGames(flatGames) {
     
     const grouped = [];
     Object.entries(groups).forEach(([baseTitleId, files]) => {
-        // Find if there is a 'Base' game in this group
         const baseGame = files.find(f => f.type === 'Base');
-        
-        // The main game card is the base game if it exists, otherwise the first file
         const main = baseGame ? { ...baseGame } : { ...files[0] };
         
-        // allFiles contains all files in the group
         main.allFiles = files;
-        
-        // Count updates and DLCs
         main.updatesCount = files.filter(f => f.type === 'Update').length;
         main.dlcsCount = files.filter(f => f.type === 'DLC').length;
         main.hasBaseGame = !!baseGame;
@@ -184,7 +449,7 @@ function applyFiltersAndSort() {
 
     // Filter by type
     if (typeVal !== 'all') {
-        if (typeVal === 'Base') {
+        if (typeVal === 'Base Game' || typeVal === 'Base') {
             groupedList = groupedList.filter(g => g.hasBaseGame);
         } else if (typeVal === 'Update') {
             groupedList = groupedList.filter(g => g.updatesCount > 0);
@@ -255,13 +520,13 @@ function renderGames() {
         
         let badgesHtml = '';
         if (game.hasBaseGame) {
-            badgesHtml += `<span class="badge badge-base">Base Game</span>`;
+            badgesHtml += `<span class="badge badge-base">${t('card.base_game')}</span>`;
         }
         if (game.updatesCount > 0) {
-            badgesHtml += `<span class="badge badge-update">Update</span>`;
+            badgesHtml += `<span class="badge badge-update">${t('card.update')}</span>`;
         }
         if (game.dlcsCount > 0) {
-            badgesHtml += `<span class="badge badge-dlc">+ ${game.dlcsCount} DLC</span>`;
+            badgesHtml += `<span class="badge badge-dlc">${t('card.dlc', { count: game.dlcsCount })}</span>`;
         }
 
         card.innerHTML = `
@@ -280,7 +545,7 @@ function renderGames() {
                 </div>
             </div>
             <div class="card-actions">
-                <button class="btn btn-secondary card-details-btn" style="width: 100%; justify-content: center;"><i class="fa-solid fa-circle-info"></i> Details & Dateien</button>
+                <button class="btn btn-secondary card-details-btn" style="width: 100%; justify-content: center;"><i class="fa-solid fa-circle-info"></i> ${t('card.details_btn')}</button>
             </div>
         `;
         
@@ -293,21 +558,21 @@ function renderGames() {
 // Trigger Scan API
 async function triggerScan() {
     scanBtn.disabled = true;
-    scanBtn.innerHTML = '<i class="fa-solid fa-arrows-rotate fa-spin"></i> Scanne Verzeichnis...';
+    scanBtn.innerHTML = `<i class="fa-solid fa-arrows-rotate fa-spin"></i> ${t('header.scanning')}`;
     showLoading(true);
 
     try {
         const response = await fetch(API_SCAN, { method: 'POST' });
-        if (!response.ok) throw new Error('Scan process failed.');
+        if (!response.ok) throw new Error(t('loading.scan_failed'));
         gamesData = await response.json();
         updateStats();
         applyFiltersAndSort();
     } catch (error) {
         console.error(error);
-        alert(`Fehler beim Scannen: ${error.message}`);
+        alert(`${t('loading.scan_error')}${error.message}`);
     } finally {
         scanBtn.disabled = false;
-        scanBtn.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> Bibliothek scannen';
+        scanBtn.innerHTML = `<i class="fa-solid fa-arrows-rotate"></i> <span>${t('header.scan')}</span>`;
         showLoading(false);
     }
 }
@@ -317,7 +582,6 @@ let uploadQueue = [];
 let isUploading = false;
 
 function setupUploadEvents() {
-    // Drag Over
     ['dragenter', 'dragover'].forEach(eventName => {
         dropZone.addEventListener(eventName, (e) => {
             e.preventDefault();
@@ -325,7 +589,6 @@ function setupUploadEvents() {
         }, false);
     });
 
-    // Drag Leave
     ['dragleave', 'drop'].forEach(eventName => {
         dropZone.addEventListener(eventName, (e) => {
             e.preventDefault();
@@ -333,7 +596,6 @@ function setupUploadEvents() {
         }, false);
     });
 
-    // Drop
     dropZone.addEventListener('drop', (e) => {
         const dt = e.dataTransfer;
         const files = dt.files;
@@ -342,7 +604,6 @@ function setupUploadEvents() {
         }
     });
 
-    // Input Change
     fileInput.addEventListener('change', () => {
         if (fileInput.files.length > 0) {
             queueFilesForUpload(fileInput.files);
@@ -360,7 +621,6 @@ function queueFilesForUpload(filesList) {
 function processUploadQueue() {
     if (isUploading) return;
     if (uploadQueue.length === 0) {
-        // Queue empty, wait 3s before hiding the bar to let user see "100%"
         setTimeout(() => {
             if (uploadQueue.length === 0 && !isUploading) {
                 uploadProgressContainer.classList.add('hidden');
@@ -373,24 +633,22 @@ function processUploadQueue() {
     isUploading = true;
     
     uploadProgressContainer.classList.remove('hidden');
-    const remainingText = uploadQueue.length > 0 ? ` (Noch ${uploadQueue.length} in der Warteschlange)` : '';
+    const remainingText = uploadQueue.length > 0 ? t('upload.queue_remaining', { count: uploadQueue.length }) : '';
     uploadFilename.textContent = file.name + remainingText;
     uploadPercent.textContent = '0%';
     progressBarFill.style.width = '0%';
-    uploadStatus.textContent = 'Bereite Upload vor...';
+    uploadStatus.textContent = t('upload.preparing');
 
     handleFileUpload(file, () => {
         isUploading = false;
-        // Small delay between uploads
         setTimeout(processUploadQueue, 500);
     });
 }
 
-// AJAX Upload with Progress (Stream-based raw upload)
+// AJAX Upload with Progress
 function handleFileUpload(file, callback) {
     const xhr = new XMLHttpRequest();
 
-    // Track Progress
     xhr.upload.addEventListener('progress', (e) => {
         if (e.lengthComputable) {
             const percentComplete = Math.round((e.loaded / e.total) * 100);
@@ -399,18 +657,16 @@ function handleFileUpload(file, callback) {
             
             const uploadedMB = (e.loaded / (1024 * 1024)).toFixed(1);
             const totalMB = (e.total / (1024 * 1024)).toFixed(1);
-            uploadStatus.textContent = `${uploadedMB} MB von ${totalMB} MB hochgeladen`;
+            uploadStatus.textContent = t('upload.progress_status', { uploaded: uploadedMB, total: totalMB });
         }
     });
 
-    // Complete / Status Change
     xhr.addEventListener('load', () => {
         if (xhr.status === 200) {
             progressBarFill.style.width = '100%';
             uploadPercent.textContent = '100%';
-            uploadStatus.textContent = 'Upload erfolgreich! Auto-Scan läuft...';
+            uploadStatus.textContent = t('upload.success');
             
-            // Reload database
             fetchGames(); 
             
             setTimeout(() => {
@@ -422,7 +678,7 @@ function handleFileUpload(file, callback) {
                 const res = JSON.parse(xhr.responseText);
                 if (res.error) errorMsg = res.error;
             } catch(e) {}
-            uploadStatus.innerHTML = `<span style="color: var(--neon-red)"><i class="fa-solid fa-triangle-exclamation"></i> Fehler: ${errorMsg}</span>`;
+            uploadStatus.innerHTML = `<span style="color: var(--neon-red)"><i class="fa-solid fa-triangle-exclamation"></i> ${t('upload.error_prefix')}${errorMsg}</span>`;
             
             setTimeout(() => {
                 if (callback) callback();
@@ -431,13 +687,12 @@ function handleFileUpload(file, callback) {
     });
 
     xhr.addEventListener('error', () => {
-        uploadStatus.innerHTML = '<span style="color: var(--neon-red)"><i class="fa-solid fa-triangle-exclamation"></i> Netzwerkfehler beim Upload</span>';
+        uploadStatus.innerHTML = `<span style="color: var(--neon-red)"><i class="fa-solid fa-triangle-exclamation"></i> ${t('upload.network_error')}</span>`;
         setTimeout(() => {
             if (callback) callback();
         }, 3000);
     });
 
-    // Send filename as query parameter and the raw file as request body
     xhr.open('POST', `${API_UPLOAD}?name=${encodeURIComponent(file.name)}`);
     xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
     xhr.send(file);
@@ -455,14 +710,12 @@ function showLoading(show) {
 
 // Modal Details Dialog
 function showDetails(game) {
-    // Icon
     modalIcon.src = game.icon ? game.icon : 'images/fallback_icon.png';
     modalIcon.onerror = function() {
         this.src = 'https://raw.githubusercontent.com/blawar/titledb/master/images/0100152000022000.png';
     };
 
-    // Badge styling based on type
-    modalType.textContent = game.hasBaseGame ? 'Base Game' : (game.updatesCount > 0 ? 'Update' : 'DLC');
+    modalType.textContent = game.hasBaseGame ? t('card.base_game') : (game.updatesCount > 0 ? t('card.update') : 'DLC');
     modalType.className = 'badge';
     if (game.hasBaseGame) {
         modalType.classList.add('badge-base');
@@ -474,9 +727,8 @@ function showDetails(game) {
 
     modalTitle.textContent = game.title;
     modalPublisher.textContent = game.publisher || 'Nintendo';
-    modalTitleId.textContent = game.titleId.substring(0, 13) + '000'; // Show Base Title ID
+    modalTitleId.textContent = game.titleId.substring(0, 13) + '000';
     
-    // Hide single file details from old layout (since we list them individually now)
     modalSize.parentElement.style.display = 'none';
     modalFilepath.parentElement.style.display = 'none';
     modalNestedItem.style.display = 'none';
@@ -491,7 +743,7 @@ function showDetails(game) {
             modalLanguages.appendChild(tag);
         });
     } else {
-        modalLanguages.innerHTML = '<span class="text-muted">Keine Sprachen hinterlegt</span>';
+        modalLanguages.innerHTML = `<span class="text-muted">${t('modal.no_languages')}</span>`;
     }
 
     // Render Files List
@@ -505,36 +757,42 @@ function showDetails(game) {
         const sizeGB = ((file.fileSize || 0) / (1024 * 1024 * 1024)).toFixed(2);
         
         let typeBadgeClass = 'badge-base';
-        if (file.type === 'Update') typeBadgeClass = 'badge-update';
-        if (file.type === 'DLC') typeBadgeClass = 'badge-dlc';
+        let typeText = t('card.base_game');
+        if (file.type === 'Update') {
+            typeBadgeClass = 'badge-update';
+            typeText = t('card.update');
+        } else if (file.type === 'DLC') {
+            typeBadgeClass = 'badge-dlc';
+            typeText = 'DLC';
+        }
         
         fileRow.innerHTML = `
-            <span class="badge ${typeBadgeClass}" style="min-width: 65px; text-align: center;">${file.type}</span>
+            <span class="badge ${typeBadgeClass}" style="min-width: 65px; text-align: center;">${typeText}</span>
             <div class="file-name" title="${file.fileName}">${file.fileName}</div>
             <span class="file-size">${sizeGB} GB</span>
             <div class="file-actions">
-                <a href="/api/download/${file.dbKey}" class="btn-icon btn-icon-primary" title="Herunterladen"><i class="fa-solid fa-download"></i></a>
-                <button class="btn-icon btn-icon-danger file-delete-btn" title="Löschen"><i class="fa-solid fa-trash-can"></i></button>
+                <a href="/api/download/${file.dbKey}" class="btn-icon btn-icon-primary" title="${t('modal.download')}"><i class="fa-solid fa-download"></i></a>
+                <button class="btn-icon btn-icon-danger file-delete-btn" title="${t('modal.delete')}"><i class="fa-solid fa-trash-can"></i></button>
             </div>
         `;
         
         // Bind individual file delete button
         fileRow.querySelector('.file-delete-btn').addEventListener('click', async () => {
-            const confirmDelete = confirm(`Bist du sicher, dass du die Datei "${file.fileName}" permanent von der Festplatte löschen möchtest?`);
+            const confirmDelete = confirm(t('modal.delete_confirm', { filename: file.fileName }));
             if (!confirmDelete) return;
             
             try {
                 const response = await fetch(`/api/games/${file.dbKey}`, { method: 'DELETE' });
-                if (!response.ok) throw new Error('Fehler beim Löschen der Datei.');
+                if (!response.ok) throw new Error(t('modal.delete_error'));
                 
                 const result = await response.json();
-                alert(result.message || 'Datei erfolgreich gelöscht.');
+                alert(result.message || t('modal.delete_success'));
                 
                 hideModal();
-                fetchGames(); // Refresh the grid
+                fetchGames();
             } catch (err) {
                 console.error(err);
-                alert(`Fehler: ${err.message}`);
+                alert(`${t('upload.error_prefix')}${err.message}`);
             }
         });
         
@@ -550,25 +808,8 @@ function hideModal() {
 
 // Utility to translate Switch lang names to user-friendly names
 function translateLanguage(lang) {
-    const translations = {
-        "Japanese": "Japanisch (JA)",
-        "AmericanEnglish": "Englisch (US)",
-        "BritishEnglish": "Englisch (UK)",
-        "French": "Französisch (FR)",
-        "German": "Deutsch (DE)",
-        "Italian": "Italienisch (IT)",
-        "Spanish": "Spanisch (ES)",
-        "Dutch": "Niederländisch (NL)",
-        "Portuguese": "Portugiesisch (PT)",
-        "Russian": "Russisch (RU)",
-        "Korean": "Koreanisch (KO)",
-        "ChineseSimplified": "Chinesisch (Vereinfacht)",
-        "TraditionalChinese": "Chinesisch (Traditionell)",
-        "CanadianFrench": "Französisch (Kanada)",
-        "LatinAmericanSpanish": "Spanisch (Lateinamerika)",
-        "SimplifiedChinese": "Chinesisch (Vereinfacht)"
-    };
-    return translations[lang] || lang;
+    const langObj = i18n[currentLang].languages || {};
+    return langObj[lang] || lang;
 }
 
 function showKeysOverlay(show) {
@@ -580,12 +821,10 @@ function showKeysOverlay(show) {
 }
 
 function setupKeysUploadEvents() {
-    // Click on drop zone triggers file input
     keysDropZone.addEventListener('click', () => {
         keysFileInput.click();
     });
 
-    // Drag events
     ['dragenter', 'dragover'].forEach(eventName => {
         keysDropZone.addEventListener(eventName, (e) => {
             e.preventDefault();
@@ -602,7 +841,6 @@ function setupKeysUploadEvents() {
         }, false);
     });
 
-    // Drop
     keysDropZone.addEventListener('drop', (e) => {
         const dt = e.dataTransfer;
         const files = dt.files;
@@ -611,7 +849,6 @@ function setupKeysUploadEvents() {
         }
     });
 
-    // File Input change
     keysFileInput.addEventListener('change', () => {
         if (keysFileInput.files.length > 0) {
             handleKeysUpload(keysFileInput.files[0]);
@@ -621,11 +858,11 @@ function setupKeysUploadEvents() {
 
 function handleKeysUpload(file) {
     if (file.name !== 'prod.keys' && file.name !== 'keys.txt') {
-        keysUploadStatus.innerHTML = '<span style="color: var(--neon-red)"><i class="fa-solid fa-triangle-exclamation"></i> Fehler: Datei muss "prod.keys" heißen!</span>';
+        keysUploadStatus.innerHTML = `<span style="color: var(--neon-red)"><i class="fa-solid fa-triangle-exclamation"></i> ${t('keys.wrong_file')}</span>`;
         return;
     }
 
-    keysUploadStatus.innerHTML = '<i class="fa-solid fa-arrows-rotate fa-spin"></i> Lade Keys hoch...';
+    keysUploadStatus.innerHTML = `<i class="fa-solid fa-arrows-rotate fa-spin"></i> ${t('keys.uploading')}`;
 
     const formData = new FormData();
     formData.append('keysFile', file);
@@ -638,9 +875,9 @@ function handleKeysUpload(file) {
         const res = await response.json();
         if (!response.ok) throw new Error(res.error || 'Upload failed');
         
-        keysUploadStatus.innerHTML = '<span style="color: #2ec4b6"><i class="fa-solid fa-circle-check"></i> Keys geladen! Starte Scan...</span>';
+        keysUploadStatus.innerHTML = `<span style="color: #2ec4b6"><i class="fa-solid fa-circle-check"></i> ${t('keys.success')}</span>`;
         setTimeout(() => {
-            fetchGames(); // Reload library, which will trigger scan and hide overlay
+            fetchGames();
         }, 1500);
     })
     .catch(error => {

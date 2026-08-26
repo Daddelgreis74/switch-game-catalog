@@ -1,113 +1,118 @@
-# Nintendo Switch Game Catalog & Server
+# NSW Game Catalog & Server
 
-Ein leichtgewichtiger und schneller selbstgehosteter Web-Server zur Organisation, Verwaltung und Bereitstellung deiner Nintendo Switch Spieldateien. 
+[![Language: Deutsch](https://img.shields.io/badge/Language-Deutsch-blue.svg)](README.de.md)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Docker Image](https://img.shields.io/badge/Docker-ghcr.io-blue?logo=docker)](https://github.com/Daddelgreis74/switch-game-catalog/pkgs/container/switch-game-catalog)
 
-Das System katalogisiert vorhandene Spiele (`.nsp`, `.nsz`, `.zip`, `.xci`), liest deren Metadaten und Titelbilder über das offizielle `hactool` aus (unter Verwendung deiner Switch-Konsolenschlüssel `prod.keys`) und bietet ein reaktives Web-Dashboard zum Suchen, Filtern, Herunterladen, Hochladen und Löschen von Spielen.
+A lightweight, fast, self-hosted web server to organize, manage, and browse your Nintendo Switch game files.
 
----
-
-## Features
-
-- 🎮 **Automatische Dateierkennung:** Erkennt Hauptspiele, Updates und DLCs direkt im konfigurierten Spieleverzeichnis (rekursiv).
-- 📦 **ZIP-Unterstützung:** Scant und liest direkt aus verschachtelten ZIP-Dateien heraus, ohne das gesamte 15 GB+ Spielearchiv entpacken zu müssen.
-- 🔑 **On-the-Fly Entschlüsselung:** Liest die verschlüsselten `control.nca` Metadaten aus und extrahiert offizielle Spielenamen, Publisher, unterstützte Sprachen und das Original-Titelbild.
-- ⚡ **Hochperformantes Caching:** Durch Datei- und Modifikationszeitprüfungen laufen nachfolgende Scans in unter 1 Sekunde.
-- 📂 **Web-Dashboard:** Modernes Interface im Switch-Neon-Stil (Dark Mode) mit flüssigen CSS-Effekten und modalen Detailansichten.
-- 📤 **Drag & Drop Upload:** Lade Spieldateien bis zu 40 GB direkt im Browser hoch (mit Live-Fortschrittsbalken). Die Dateien werden automatisch einsortiert und gescannt.
-- 📥 **Direkter Download:** Ermöglicht das Herunterladen der Originaldateien über das Netzwerk.
-- 🗑️ **Löschfunktion:** Ermöglicht das dauerhafte Löschen von Spieldateien und deren Cache direkt über die Web-Oberfläche.
-- 🐳 **Docker & TrueNAS-Ready:** Beinhaltet ein Multi-Stage Dockerfile, das `hactool` auf Linux-Systemen wie TrueNAS SCALE nativ aus dem Quellcode kompiliert.
+The system indexes your game files (`.nsp`, `.nsz`, `.zip`, `.xci`), extracts metadata and box art on-the-fly using `hactool` (with your own `prod.keys`), and provides a reactive, modern web dashboard for searching, filtering, downloading, uploading, and managing your library.
 
 ---
 
-## 🔑 Voraussetzungen
+## ✨ Features
+
+- 🎮 **Automatic File Detection:** Detects base games, updates, and DLCs recursively within your configured games directory.
+- 📦 **Direct ZIP Inspection:** Scans and reads metadata directly from nested ZIP archives without unpacking large 15 GB+ files.
+- 🔑 **On-the-Fly Metadata Decryption:** Reads encrypted `control.nca` metadata to extract official game titles, publishers, supported languages, and original box art icons.
+- ⚡ **High-Performance Caching:** Subsequent scans complete in under 1 second thanks to file signature and modification time caching.
+- 📂 **Modern Web Dashboard:** Sleek Joy-Con neon-themed interface with dark mode, interactive modal detail views, and multilingual support (English & German).
+- 📤 **Drag & Drop Uploads:** Upload game files up to 40 GB directly through your browser with a live progress indicator.
+- 📥 **Direct Downloads:** Download original game backups directly over your local network.
+- 🗑️ **Library Management:** Permanently delete game files and clean up cache directly from the web UI.
+- 🐳 **Docker & TrueNAS-Ready:** Includes a multi-stage Dockerfile that builds `hactool` natively from source on Linux systems (TrueNAS SCALE, Debian, Ubuntu).
+
+---
+
+## 🔑 Prerequisites
 
 > [!IMPORTANT]
-> **Konsolenschlüssel (`prod.keys`) erforderlich:**
-> Um die Spieldateien entschlüsseln und Cover extrahieren zu können, benötigst du die Konsolenschlüssel deiner Switch.
-> Die Datei muss den Namen **`prod.keys`** tragen und im System konfiguriert werden (z. B. unter `D:\prod.keys` bzw. gemountet nach `/config/prod.keys`).
+> **Console Keys (`prod.keys`) Required:**
+> To decrypt game metadata and extract cover images, you must provide your own console keys dumped from your Nintendo Switch console.
+> The key file must be named **`prod.keys`** and mounted/configured in the system (e.g. at `D:\prod.keys` or mounted to `/config/prod.keys`).
+> **No keys, firmware, or copyright-protected files are included with this software.**
 
 ---
 
-## 💻 Lokale Installation (Windows)
+## 💻 Local Installation (Windows)
 
-1. **Repository klonen:**
+1. **Clone repository:**
    ```bash
    git clone https://github.com/Daddelgreis74/switch-game-catalog.git
    cd switch-game-catalog
    ```
 
-2. **Abhängigkeiten installieren:**
+2. **Install dependencies:**
    ```bash
    npm install
    ```
 
-3. **Konfiguration anpassen (`.env`):**
-   Erstelle eine `.env` Datei im Hauptverzeichnis:
+3. **Configure environment (`.env`):**
+   Create a `.env` file in the root directory:
    ```env
    PORT=3000
    GAMES_DIR=D:\NintendoGames
    KEYS_PATH=D:\prod.keys
    ```
 
-4. **Hactool bereitstellen:**
-   Platziere die Windows-Version von `hactool.exe` im Ordner `bin/hactool.exe`.
+4. **Provide Hactool:**
+   Place the Windows binary of `hactool.exe` into the `bin/hactool.exe` directory.
 
-5. **Server starten:**
+5. **Start server:**
    ```bash
    npm start
    ```
 
 > [!NOTE]
-> Öffne danach **`http://localhost:3000`** in deinem Browser.
+> Open **`http://localhost:3000`** in your browser.
 
 ---
 
 ## 🐳 TrueNAS SCALE & Docker Deployment
 
 > [!TIP]
-> **Berechtigungen auf TrueNAS:**  
-> Stelle sicher, dass die App Lese- und Schreibrechte auf den Cache- und Spiele-Ordner besitzt (insbesondere falls Uploads oder das Löschen über die Web-Oberfläche genutzt werden sollen).
+> **TrueNAS Permissions:**  
+> Ensure the application container has read & write permissions on your games and cache datasets (especially if uploading or deleting files via the web interface).
 
-### Option 1: TrueNAS SCALE Custom App (Web-Oberfläche)
+### Option 1: TrueNAS SCALE Custom App (Web GUI)
 
-Installiere den Switch Game Catalog direkt über das TrueNAS SCALE Web-Interface:
+Install NSW Game Catalog directly through the TrueNAS SCALE web interface:
 
-#### 1️⃣ Vorbereitung (Datasets anlegen):
-- **Keys-Ordner:** z. B. `/mnt/tank/apps/switch-catalog/keys/` *(hier deine `prod.keys` ablegen)*
-- **Cache-Ordner:** z. B. `/mnt/tank/apps/switch-catalog/cache/`
-- **Spiele-Ordner:** z. B. `/mnt/tank/Spiele/Switch/`
+#### 1️⃣ Preparation (Create Datasets / Directories):
+- **Keys directory:** e.g. `/mnt/tank/apps/switch-catalog/keys/` *(place your `prod.keys` here)*
+- **Cache directory:** e.g. `/mnt/tank/apps/switch-catalog/cache/`
+- **Games directory:** e.g. `/mnt/tank/Spiele/Switch/`
 
-#### 2️⃣ App anlegen:
-- Navigiere in TrueNAS SCALE zu **Apps** ➜ **Discover Apps** ➜ **Custom App** (oben rechts).
+#### 2️⃣ Create App:
+- Navigate to **Apps** ➜ **Discover Apps** ➜ **Custom App** (top right).
 - **Application Name:** `switch-game-catalog`
 
 #### 3️⃣ Container Image:
-| Einstellung | Wert (Copy-Paste) |
+| Setting | Value (Copy-Paste) |
 | :--- | :--- |
 | **Image repository** | `ghcr.io/daddelgreis74/switch-game-catalog` |
 | **Image tag** | `latest` |
 | **Image Pull Policy** | `Always` |
 
-#### 4️⃣ Environment Variables (Umgebungsvariablen):
-| Name | Wert (Copy-Paste) | Beschreibung |
+#### 4️⃣ Environment Variables:
+| Name | Value (Copy-Paste) | Description |
 | :--- | :--- | :--- |
-| `PORT` | `3000` | Interner Web-Port |
-| `GAMES_DIR` | `/games` | Pfad zu den Spielen im Container |
-| `KEYS_PATH` | `/config/prod.keys` | Pfad zur Schlüsseldatei im Container |
+| `PORT` | `3000` | Internal web port |
+| `GAMES_DIR` | `/games` | Path to games inside container |
+| `KEYS_PATH` | `/config/prod.keys` | Path to keys file inside container |
 
 #### 5️⃣ Port Forwarding:
-| Port-Typ | Port-Nummer | Protokoll |
+| Port Type | Port Number | Protocol |
 | :--- | :--- | :--- |
 | **Container Port** | `3000` | `TCP` |
 | **Node Port / Web Port** | `3000` | `TCP` |
 
 #### 6️⃣ Storage (Host Path Volumes):
-| Host Path (TrueNAS Pfad - anpassen) | Mount Path (Container Pfad) | Read Only |
+| Host Path (TrueNAS Path - adjust) | Mount Path (Container Path) | Read Only |
 | :--- | :--- | :---: |
-| `/mnt/tank/Spiele/Switch` | `/games` | ❌ *Nein* |
-| `/mnt/tank/apps/switch-catalog/keys` | `/config` | ✅ *Ja* |
-| `/mnt/tank/apps/switch-catalog/cache` | `/app/public/cache` | ❌ *Nein* |
+| `/mnt/tank/Spiele/Switch` | `/games` | ❌ *No* |
+| `/mnt/tank/apps/switch-catalog/keys` | `/config` | ✅ *Yes* |
+| `/mnt/tank/apps/switch-catalog/cache` | `/app/public/cache` | ❌ *No* |
 
 ---
 
@@ -128,24 +133,32 @@ services:
       - GAMES_DIR=/games
       - KEYS_PATH=/config/prod.keys
     volumes:
-      # Pfad zu deinen Switch-Spielen
+      # Path to your Switch game files
       - /mnt/tank/Spiele/Switch:/games
-      # Pfad zu deinen prod.keys (schreibgeschützt)
+      # Path to your prod.keys (read-only)
       - /mnt/tank/apps/switch-catalog/keys:/config:ro
-      # Persistierung der extrahierten Icons / Cover-Cache
+      # Cache persistence for extracted covers/icons
       - /mnt/tank/apps/switch-catalog/cache:/app/public/cache
 ```
 
-#### Starten via Compose:
+#### Start with Docker Compose:
 ```bash
 docker-compose up -d
 ```
 
 > [!NOTE]
-> Nach dem Start ist das Dashboard unter `http://<DEINE-SERVER-IP>:3000` erreichbar.
+> Once started, access the web dashboard at `http://<YOUR-SERVER-IP>:3000`.
 
 ---
 
-## Lizenz
+## ⚖️ Legal & Trademark Disclaimer
 
-Dieses Projekt ist unter der MIT-Lizenz lizenziert. Dieses Tool dient ausschließlich der Verwaltung deiner rechtmäßig erworbenen und selbst gedumpten Sicherheitskopien. Es enthält keinerlei urheberrechtlich geschützte Nintendo-Dateien oder proprietäre Keys.
+> [!NOTE]
+> - **Trademarks:** Nintendo and Nintendo Switch are registered trademarks of Nintendo Co., Ltd. NSW Game Catalog is an independent, community-driven open-source project and is **not affiliated with, endorsed by, sponsored by, or associated with Nintendo Co., Ltd.**
+> - **No Copyrighted Material:** This software does not distribute or host any copyrighted ROMs, game dumps, encryption keys (`prod.keys`), or proprietary Nintendo firmware. Users are solely responsible for legally dumping their own games and keys from consoles they physically own.
+
+---
+
+## 📄 License
+
+Distributed under the **MIT License**. See [LICENSE](LICENSE) for more information.
