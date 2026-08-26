@@ -83,14 +83,14 @@ Installiere den Switch Game Catalog direkt über das TrueNAS SCALE Web-Interface
 - **Application Name:** `switch-game-catalog`
 
 #### 3️⃣ Container Image:
-| Einstellung | Wert |
+| Einstellung | Wert (Copy-Paste) |
 | :--- | :--- |
 | **Image repository** | `ghcr.io/daddelgreis74/switch-game-catalog` |
 | **Image tag** | `latest` |
 | **Image Pull Policy** | `Always` |
 
 #### 4️⃣ Environment Variables (Umgebungsvariablen):
-| Name | Wert | Beschreibung |
+| Name | Wert (Copy-Paste) | Beschreibung |
 | :--- | :--- | :--- |
 | `PORT` | `3000` | Interner Web-Port |
 | `GAMES_DIR` | `/games` | Pfad zu den Spielen im Container |
@@ -100,10 +100,10 @@ Installiere den Switch Game Catalog direkt über das TrueNAS SCALE Web-Interface
 | Port-Typ | Port-Nummer | Protokoll |
 | :--- | :--- | :--- |
 | **Container Port** | `3000` | `TCP` |
-| **Node Port / Web Port** | `3000` *(oder freier Wunschport)* | `TCP` |
+| **Node Port / Web Port** | `3000` | `TCP` |
 
 #### 6️⃣ Storage (Host Path Volumes):
-| Host Path (TrueNAS Pfad) | Mount Path (Container Pfad) | Read Only |
+| Host Path (TrueNAS Pfad - anpassen) | Mount Path (Container Pfad) | Read Only |
 | :--- | :--- | :---: |
 | `/mnt/tank/Spiele/Switch` | `/games` | ❌ *Nein* |
 | `/mnt/tank/apps/switch-catalog/keys` | `/config` | ✅ *Ja* |
