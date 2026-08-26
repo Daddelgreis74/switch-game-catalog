@@ -18,21 +18,23 @@ COPY package.json ./
 RUN npm install --only=production
 
 # Copy application files
-COPY server.js scanner_helper.py ./
+COPY server.js scanner_helper.py entrypoint.sh ./
 COPY public/ ./public/
 
 # Copy compiled hactool binary from Stage 1
 COPY --from=builder /src/hactool ./bin/hactool
-RUN chmod +x ./bin/hactool
+RUN chmod +x ./bin/hactool ./entrypoint.sh
 
 # Ensure folders exist and are writable for any user (e.g. TrueNAS apps UID 568)
 RUN mkdir -p /app/public/cache /app/db /config /games /tmp && chmod -R 777 /app /tmp
 
-# Default environment variables (overridden by docker-compose)
+# Default environment variables
 ENV PORT=3000
 ENV GAMES_DIR=/games
 ENV KEYS_PATH=/config/prod.keys
+ENV DB_PATH=/config/games_db.json
 
 EXPOSE 3000
 
+ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["node", "server.js"]

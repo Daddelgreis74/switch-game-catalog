@@ -129,17 +129,23 @@ const resolvePythonCmd = () => {
 };
 
 
-// Ensure folder structures exist
-if (!fs.existsSync(GAMES_DIR)) {
-    fs.mkdirSync(GAMES_DIR, { recursive: true });
-}
-if (!fs.existsSync(CACHE_DIR)) {
-    fs.mkdirSync(CACHE_DIR, { recursive: true });
-}
-const tempUploadsDir = path.join(GAMES_DIR, '.temp_uploads');
-if (!fs.existsSync(tempUploadsDir)) {
-    fs.mkdirSync(tempUploadsDir, { recursive: true });
-}
+// Ensure folder structures exist safely without throwing errors on read-only mounts
+const ensureDir = (dirPath) => {
+    try {
+        if (dirPath && !fs.existsSync(dirPath)) {
+            fs.mkdirSync(dirPath, { recursive: true });
+        }
+    } catch (e) {
+        console.warn(`Directory check/creation note for ${dirPath}: ${e.message}`);
+    }
+};
+
+ensureDir(GAMES_DIR);
+ensureDir(CACHE_DIR);
+ensureDir(path.dirname(DB_PATH));
+
+const tempUploadsDir = path.join(os.tmpdir(), 'switch_uploads');
+ensureDir(tempUploadsDir);
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
