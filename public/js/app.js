@@ -555,7 +555,7 @@ function renderGames(gamesList) {
                     ${badgesHtml}
                 </div>
                 <h3 class="game-title" title="${game.title}">${game.title}</h3>
-                <span class="game-publisher">${game.publisher || 'Nintendo'}</span>
+                <span class="game-publisher">${game.publisher || '-'}</span>
                 <div class="game-meta-info">
                     <span><i class="fa-solid fa-file-zipper"></i> ${sizeGB} GB</span>
                     <span class="code" style="font-size: 0.75rem;">${displayTitleId}</span>
@@ -744,7 +744,7 @@ function showDetails(game) {
     }
 
     modalTitle.textContent = game.title;
-    modalPublisher.textContent = game.publisher || 'Nintendo';
+    modalPublisher.textContent = game.publisher || '-';
     modalTitleId.textContent = (game.titleId && game.titleId !== 'unknown' && game.titleId.length >= 16)
         ? game.titleId.substring(0, 13) + '000'
         : (game.titleId || '-');

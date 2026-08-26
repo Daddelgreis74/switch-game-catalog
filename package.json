@@ -1,6 +1,6 @@
 {
   "name": "switch-game-catalog",
-  "version": "1.1.8",
+  "version": "1.1.9",
   "description": "NSW Game Catalog & Server - Lightweight self-hosted game library manager",
   "main": "server.js",
   "scripts": {
@@ -8,10 +8,11 @@
     "dev": "node server.js"
   },
   "keywords": [
-    "nintendo",
+    "nsw",
     "switch",
     "catalog",
-    "server"
+    "server",
+    "games"
   ],
   "author": "Antigravity",
   "license": "MIT",

@@ -8,7 +8,7 @@ require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const GAMES_DIR = process.env.GAMES_DIR || 'D:\\NintendoGames';
+const GAMES_DIR = process.env.GAMES_DIR || 'D:\\Games';
 const KEYS_PATH = process.env.KEYS_PATH || 'D:\\prod.keys';
 const HACTOOL_PATH = path.join(__dirname, 'bin', process.platform === 'win32' ? 'hactool.exe' : 'hactool');
 const CACHE_DIR = path.join(__dirname, 'public', 'cache');
@@ -435,7 +435,7 @@ app.post('/api/upload-keys', (req, res) => {
 
 const server = app.listen(PORT, () => {
     console.log(`==================================================`);
-    console.log(` Nintendo Switch Game Catalog Server is running!`);
+    console.log(` NSW Game Catalog Server is running!`);
     console.log(` URL: http://localhost:${PORT}`);
     console.log(` Games Directory: ${GAMES_DIR}`);
     console.log(` Keys Path: ${KEYS_PATH}`);
