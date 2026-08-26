@@ -195,9 +195,17 @@ def extract_and_parse_control(stream, pfs0_files, hactool_path, keys_path, cache
     ]
     
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, errors='ignore')
+        result = subprocess.run(cmd, capture_output=True, text=True, errors='ignore', timeout=60)
         if result.returncode != 0:
             print(f"hactool stderr: {result.stderr}", file=sys.stderr)
+    except subprocess.TimeoutExpired:
+        print(f"hactool timed out on {temp_nca_path}", file=sys.stderr)
+        return None
+    except Exception as e:
+        print(f"Error running hactool: {e}", file=sys.stderr)
+        return None
+
+    try:
             
         nacp_path = os.path.join(romfs_temp_dir, "control.nacp")
         metadata = parse_nacp(nacp_path) if os.path.exists(nacp_path) else {}
@@ -366,7 +374,7 @@ def main():
             for file in files:
                 file_path = os.path.join(root, file)
                 ext = os.path.splitext(file)[1].lower()
-                if ext not in ['.nsp', '.nsz', '.zip']:
+                if ext not in ['.nsp', '.nsz', '.xci', '.zip']:
                     continue
                     
                 try:
@@ -394,11 +402,8 @@ def main():
                     
     new_database = {}
     for game in scanned_games:
-        key = game["titleId"]
-        if not key or key == "unknown":
-            key = f"{os.path.basename(game['filePath'])}_{game['nestedPath']}"
-            
-        suffix = game["titleId"][-3:] if len(game["titleId"]) > 3 else ""
+        raw_id = game.get("titleId", "unknown")
+        suffix = raw_id[-3:] if len(raw_id) > 3 else ""
         if suffix == "800":
             game["type"] = "Update"
         elif suffix == "000":
@@ -408,7 +413,15 @@ def main():
         else:
             game["type"] = "Unknown"
             
-        db_key = f"{game['titleId']}_{game['type']}"
+        file_base = os.path.basename(game.get("filePath", ""))
+        nested = game.get("nestedPath") or ""
+        
+        if not raw_id or raw_id == "unknown":
+            key_id = f"unknown_{file_base}_{nested}".strip('_')
+        else:
+            key_id = raw_id
+            
+        db_key = f"{key_id}_{game['type']}_{file_base}_{nested}".strip('_')
         new_database[db_key] = game
         
     # Save database

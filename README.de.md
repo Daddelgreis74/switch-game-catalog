@@ -117,8 +117,8 @@ Installiere den NSW Game Catalog direkt über das TrueNAS SCALE Web-Interface:
 #### 7️⃣ Sicherheits- & Zugriffsberechtigungen (Run As User / Group):
 | Einstellung | Wert (Copy-Paste) | Beschreibung |
 | :--- | :--- | :--- |
-| **User ID (UID)** | `568` | Standard TrueNAS `apps` Benutzer |
-| **Group ID (GID)** | `568` | Standard TrueNAS `apps` Gruppe |
+| **User ID (UID)** | `0` *(oder `568`)* | `0` (root) für sofortigen Vollzugriff ohne ACL-Anpassung, oder `568` falls Dataset-Rechte auf `apps` gesetzt sind |
+| **Group ID (GID)** | `0` *(oder `568`)* | `0` (root) oder `568` (`apps`) |
 
 ---
 

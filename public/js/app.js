@@ -424,7 +424,7 @@ function groupGames(flatGames) {
     
     const grouped = [];
     Object.entries(groups).forEach(([baseTitleId, files]) => {
-        const baseGame = files.find(f => f.type === 'Base');
+        const baseGame = files.find(f => f.type === 'Base' || f.type === 'Base Game');
         const main = baseGame ? { ...baseGame } : { ...files[0] };
         
         main.allFiles = files;
@@ -458,24 +458,26 @@ function applyFiltersAndSort() {
         }
     }
 
-    // Filter by search
+    // Filter by search query
     if (searchVal) {
-        groupedList = groupedList.filter(game => {
-            const matchesMain = game.title.toLowerCase().includes(searchVal) || 
-                                game.titleId.toLowerCase().includes(searchVal) || 
-                                (game.publisher && game.publisher.toLowerCase().includes(searchVal));
-            
-            if (matchesMain) return true;
-            return game.allFiles.some(f => f.fileName && f.fileName.toLowerCase().includes(searchVal));
+        groupedList = groupedList.filter(g => {
+            const titleMatch = (g.title || '').toLowerCase().includes(searchVal);
+            const pubMatch = (g.publisher || '').toLowerCase().includes(searchVal);
+            const idMatch = (g.titleId || '').toLowerCase().includes(searchVal);
+            const fileMatch = g.allFiles.some(f => 
+                (f.fileName || '').toLowerCase().includes(searchVal) ||
+                (f.nestedPath || '').toLowerCase().includes(searchVal)
+            );
+            return titleMatch || pubMatch || idMatch || fileMatch;
         });
     }
 
     // Sort
     groupedList.sort((a, b) => {
         if (sortVal === 'title-asc') {
-            return a.title.localeCompare(b.title);
+            return (a.title || '').localeCompare(b.title || '');
         } else if (sortVal === 'title-desc') {
-            return b.title.localeCompare(a.title);
+            return (b.title || '').localeCompare(a.title || '');
         } else if (sortVal === 'size-desc') {
             const sizeA = a.allFiles.reduce((sum, f) => sum + (f.fileSize || 0), 0);
             const sizeB = b.allFiles.reduce((sum, f) => sum + (f.fileSize || 0), 0);
@@ -488,30 +490,31 @@ function applyFiltersAndSort() {
         return 0;
     });
 
-    filteredGames = groupedList;
-    renderGames();
+    renderGames(groupedList);
 }
 
 // Render Games Grid
-function renderGames() {
-    showLoading(false);
+function renderGames(gamesList) {
+    gamesGrid.innerHTML = '';
     
-    if (filteredGames.length === 0) {
+    if (gamesList.length === 0) {
         emptyState.classList.remove('hidden');
         return;
     }
+    
     emptyState.classList.add('hidden');
 
-    gamesGrid.innerHTML = '';
-    
-    filteredGames.forEach(game => {
+    gamesList.forEach(game => {
         const card = document.createElement('div');
-        const totalSize = game.allFiles.reduce((sum, f) => sum + (f.fileSize || 0), 0);
-        const sizeGB = (totalSize / (1024 * 1024 * 1024)).toFixed(1);
+        
+        const totalSizeBytes = game.allFiles.reduce((sum, f) => sum + (f.fileSize || 0), 0);
+        const sizeGB = (totalSizeBytes / (1024 * 1024 * 1024)).toFixed(2);
         
         let typeClass = 'type-base';
-        if (!game.hasBaseGame) {
-            typeClass = game.updatesCount > 0 ? 'type-update' : 'type-dlc';
+        if (!game.hasBaseGame && game.updatesCount > 0) {
+            typeClass = 'type-update';
+        } else if (!game.hasBaseGame && game.dlcsCount > 0) {
+            typeClass = 'type-dlc';
         }
 
         card.className = `game-card ${typeClass}`;
@@ -529,6 +532,10 @@ function renderGames() {
             badgesHtml += `<span class="badge badge-dlc">${t('card.dlc', { count: game.dlcsCount })}</span>`;
         }
 
+        const displayTitleId = (game.titleId && game.titleId !== 'unknown' && game.titleId.length >= 16) 
+            ? game.titleId.substring(0, 13) + '000' 
+            : (game.titleId || '-');
+
         card.innerHTML = `
             <div class="card-image-wrapper">
                 <img src="${iconSrc}" alt="${game.title}" onerror="this.src='https://raw.githubusercontent.com/blawar/titledb/master/images/0100152000022000.png'">
@@ -541,7 +548,7 @@ function renderGames() {
                 <span class="game-publisher">${game.publisher || 'Nintendo'}</span>
                 <div class="game-meta-info">
                     <span><i class="fa-solid fa-file-zipper"></i> ${sizeGB} GB</span>
-                    <span class="code" style="font-size: 0.75rem;">${game.titleId.substring(0, 13) + '000'}</span>
+                    <span class="code" style="font-size: 0.75rem;">${displayTitleId}</span>
                 </div>
             </div>
             <div class="card-actions">
@@ -727,7 +734,9 @@ function showDetails(game) {
 
     modalTitle.textContent = game.title;
     modalPublisher.textContent = game.publisher || 'Nintendo';
-    modalTitleId.textContent = game.titleId.substring(0, 13) + '000';
+    modalTitleId.textContent = (game.titleId && game.titleId !== 'unknown' && game.titleId.length >= 16)
+        ? game.titleId.substring(0, 13) + '000'
+        : (game.titleId || '-');
     
     modalSize.parentElement.style.display = 'none';
     modalFilepath.parentElement.style.display = 'none';

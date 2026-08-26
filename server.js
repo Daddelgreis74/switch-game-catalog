@@ -164,26 +164,63 @@ app.use(fileUpload({
     abortOnLimit: true
 }));
 
+const isInsideDir = (parentDir, targetPath) => {
+    if (!parentDir || !targetPath) return false;
+    const rel = path.relative(path.resolve(parentDir), path.resolve(targetPath));
+    return !rel.startsWith('..') && !path.isAbsolute(rel);
+};
+
+const getExistingDbPath = () => {
+    const possibleDbPaths = [
+        DB_PATH,
+        path.join(CACHE_DIR, 'games_db.json'),
+        path.join(__dirname, 'games_db.json'),
+        path.join(os.tmpdir(), 'games_db.json')
+    ];
+    for (const p of possibleDbPaths) {
+        if (fs.existsSync(p)) return p;
+    }
+    return null;
+};
+
+const loadDatabase = () => {
+    const dbFile = getExistingDbPath();
+    if (!dbFile) return {};
+    try {
+        const data = fs.readFileSync(dbFile, 'utf8');
+        return JSON.parse(data);
+    } catch (e) {
+        return {};
+    }
+};
+
+const saveDatabase = (db) => {
+    const saveTargets = [
+        DB_PATH,
+        path.join(CACHE_DIR, 'games_db.json'),
+        path.join(__dirname, 'games_db.json'),
+        path.join(os.tmpdir(), 'games_db.json')
+    ];
+    const data = JSON.stringify(db, null, 2);
+    let saved = false;
+    for (const target of saveTargets) {
+        try {
+            const dir = path.dirname(target);
+            if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+            fs.writeFileSync(target, data, 'utf8');
+            saved = true;
+            break;
+        } catch (e) {}
+    }
+    return saved;
+};
+
 // API: Get games list
 app.get('/api/games', (req, res) => {
     if (!hasKeys()) {
         return res.json({ keysMissing: true });
     }
-
-    if (fs.existsSync(DB_PATH)) {
-        fs.readFile(DB_PATH, 'utf8', (err, data) => {
-            if (err) {
-                return res.status(500).json({ error: 'Failed to read database.' });
-            }
-            try {
-                res.json(JSON.parse(data));
-            } catch (e) {
-                res.json({});
-            }
-        });
-    } else {
-        res.json({});
-    }
+    res.json(loadDatabase());
 });
 
 const getHactoolPath = () => {
@@ -226,19 +263,9 @@ app.post('/api/scan', (req, res) => {
             const dbContent = JSON.parse(stdout);
             res.json(dbContent);
         } catch (e) {
-            // If stdout parsing failed, read from db path directly or fallback
-            const possibleDbPaths = [
-                DB_PATH, 
-                path.join(CACHE_DIR, 'games_db.json'), 
-                path.join(os.tmpdir(), 'games_db.json')
-            ];
-            for (const p of possibleDbPaths) {
-                if (fs.existsSync(p)) {
-                    try {
-                        const data = fs.readFileSync(p, 'utf8');
-                        return res.json(JSON.parse(data));
-                    } catch (readErr) {}
-                }
+            const db = loadDatabase();
+            if (Object.keys(db).length > 0) {
+                return res.json(db);
             }
             res.status(500).json({ error: 'Scan completed but failed to parse results.' });
         }
@@ -248,75 +275,63 @@ app.post('/api/scan', (req, res) => {
 // API: Download game file
 app.get('/api/download/:dbKey', (req, res) => {
     const { dbKey } = req.params;
+    const db = loadDatabase();
+    const game = db[dbKey];
     
-    if (!fs.existsSync(DB_PATH)) {
-        return res.status(404).json({ error: 'Database not found.' });
+    if (!game || !game.filePath) {
+        return res.status(404).json({ error: 'Game file not found in database.' });
     }
     
-    try {
-        const db = JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
-        const game = db[dbKey];
-        
-        if (!game || !game.filePath) {
-            return res.status(404).json({ error: 'Game file not found in database.' });
-        }
-        
-        if (!fs.existsSync(game.filePath)) {
-            return res.status(404).json({ error: 'File does not exist on disk.' });
-        }
-        
-        res.download(game.filePath, game.fileName);
-    } catch (e) {
-        res.status(500).json({ error: 'Error downloading file.' });
+    if (!isInsideDir(GAMES_DIR, game.filePath)) {
+        return res.status(403).json({ error: 'Access denied: file is outside games directory.' });
     }
+    
+    if (!fs.existsSync(game.filePath)) {
+        return res.status(404).json({ error: 'File does not exist on disk.' });
+    }
+    
+    res.download(game.filePath, game.fileName);
 });
 
 // API: Delete game file and cache entry
 app.delete('/api/games/:dbKey', (req, res) => {
     const { dbKey } = req.params;
+    const db = loadDatabase();
+    const game = db[dbKey];
     
-    if (!fs.existsSync(DB_PATH)) {
-        return res.status(404).json({ error: 'Database not found.' });
+    if (!game) {
+        return res.status(404).json({ error: 'Game not found in database.' });
     }
     
-    try {
-        const db = JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
-        const game = db[dbKey];
-        
-        if (!game) {
-            return res.status(404).json({ error: 'Game not found in database.' });
+    // 1. Delete physical file if it exists and lies inside GAMES_DIR (Security check)
+    if (game.filePath && isInsideDir(GAMES_DIR, game.filePath) && fs.existsSync(game.filePath)) {
+        try {
+            fs.unlinkSync(game.filePath);
+            console.log(`Physically deleted file: ${game.filePath}`);
+        } catch (e) {
+            console.warn(`Could not delete file: ${e.message}`);
         }
-        
-        // 1. Delete physical file if it exists and lies inside GAMES_DIR (Security check)
-        if (game.filePath) {
-            const resolvedGamesDir = path.resolve(GAMES_DIR);
-            const resolvedFilePath = path.resolve(game.filePath);
-            if (resolvedFilePath.startsWith(resolvedGamesDir) && fs.existsSync(game.filePath)) {
-                fs.unlinkSync(game.filePath);
-                console.log(`Physically deleted file: ${game.filePath}`);
-            }
-        }
-        
-        // 2. Delete extracted icon if it exists and lies inside public folder (Security check)
-        if (game.icon) {
-            const iconPath = path.join(__dirname, 'public', game.icon);
-            const resolvedPublicDir = path.resolve(path.join(__dirname, 'public'));
-            const resolvedIconPath = path.resolve(iconPath);
-            if (resolvedIconPath.startsWith(resolvedPublicDir) && fs.existsSync(iconPath)) {
+    }
+    
+    // 2. Delete extracted icon if it exists and lies inside public folder (Security check)
+    if (game.icon) {
+        const iconPath = path.join(__dirname, 'public', game.icon);
+        const publicDir = path.join(__dirname, 'public');
+        if (isInsideDir(publicDir, iconPath) && fs.existsSync(iconPath)) {
+            try {
                 fs.unlinkSync(iconPath);
                 console.log(`Deleted cached icon: ${iconPath}`);
+            } catch (e) {
+                console.warn(`Could not delete icon: ${e.message}`);
             }
         }
-        
-        // 3. Remove from database
-        delete db[dbKey];
-        fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2), 'utf8');
-        
-        res.json({ message: 'Game successfully deleted.', dbKey });
-    } catch (e) {
-        console.error(`Error deleting game: ${e}`);
-        res.status(500).json({ error: 'Failed to delete game file.' });
     }
+    
+    // 3. Remove from database
+    delete db[dbKey];
+    saveDatabase(db);
+    
+    res.json({ message: 'Game successfully deleted.', dbKey });
 });
 
 // API: Upload game file (Stream-based for high stability with 40GB+ files)
@@ -326,8 +341,8 @@ app.post('/api/upload', (req, res) => {
         return res.status(400).json({ error: 'Dateiname fehlt im Query-Parameter (?name=...)' });
     }
 
-    // Security: sanitize filename and restrict file extensions
-    const safeName = path.basename(fileName);
+    // Security: sanitize filename and normalize slashes
+    const safeName = path.basename(fileName.replace(/\\/g, '/'));
     if (!/\.(nsp|nsz|xci|zip)$/i.test(safeName)) {
         return res.status(400).json({ error: 'Nur .nsp, .nsz, .xci oder .zip erlaubt.' });
     }
@@ -335,9 +350,7 @@ app.post('/api/upload', (req, res) => {
     const destPath = path.join(GAMES_DIR, safeName);
     
     // Security: verify that destPath resolves inside GAMES_DIR (prevent path traversal)
-    const resolvedGamesDir = path.resolve(GAMES_DIR);
-    const resolvedDestPath = path.resolve(destPath);
-    if (!resolvedDestPath.startsWith(resolvedGamesDir)) {
+    if (!isInsideDir(GAMES_DIR, destPath)) {
         return res.status(400).json({ error: 'Ungültiger Dateipfad.' });
     }
 
@@ -348,14 +361,22 @@ app.post('/api/upload', (req, res) => {
 
     writeStream.on('error', (err) => {
         console.error(`Write stream error: ${err}`);
-        res.status(500).json({ error: 'Fehler beim Schreiben der Datei auf Festplatte.' });
+        if (err.code === 'EACCES') {
+            return res.status(500).json({ 
+                error: 'Keine Schreibberechtigung auf den Spiele-Ordner (/games). Bitte in TrueNAS Custom App User ID auf 0 (root) oder Berechtigungen auf User 568 (apps) anpassen.' 
+            });
+        }
+        res.status(500).json({ error: 'Fehler beim Schreiben der Datei auf Festplatte: ' + err.message });
     });
 
     req.on('error', (err) => {
         console.error(`Request stream error: ${err}`);
-        // Clean up partial file
+        writeStream.destroy();
         if (fs.existsSync(destPath)) {
             try { fs.unlinkSync(destPath); } catch (e) {}
+        }
+        if (!res.headersSent) {
+            res.status(500).json({ error: 'Verbindungsabbruch während des Uploads.' });
         }
     });
 

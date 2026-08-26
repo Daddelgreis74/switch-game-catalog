@@ -18,15 +18,15 @@ COPY package.json ./
 RUN npm install --only=production
 
 # Copy application files
-COPY server.js scanner_helper.py entrypoint.sh ./
+COPY server.js scanner_helper.py ./
 COPY public/ ./public/
 
 # Copy compiled hactool binary from Stage 1
 COPY --from=builder /src/hactool ./bin/hactool
 COPY --from=builder /src/hactool /usr/local/bin/hactool
-RUN chmod +x ./bin/hactool /usr/local/bin/hactool ./entrypoint.sh && sed -i 's/\r$//' ./entrypoint.sh
+RUN chmod +x ./bin/hactool /usr/local/bin/hactool
 
-# Ensure folders exist and are writable for any user (e.g. TrueNAS apps UID 568)
+# Ensure folders exist and are writable for any user
 RUN mkdir -p /app/public/cache /app/db /config /games /tmp && chmod -R 777 /app /tmp
 
 # Default environment variables
@@ -37,5 +37,4 @@ ENV DB_PATH=/config/games_db.json
 
 EXPOSE 3000
 
-ENTRYPOINT ["/bin/sh", "/app/entrypoint.sh"]
 CMD ["node", "server.js"]
