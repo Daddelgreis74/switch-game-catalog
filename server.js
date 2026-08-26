@@ -13,7 +13,7 @@ const KEYS_PATH = process.env.KEYS_PATH || 'D:\\prod.keys';
 const HACTOOL_PATH = path.join(__dirname, 'bin', process.platform === 'win32' ? 'hactool.exe' : 'hactool');
 const CACHE_DIR = path.join(__dirname, 'public', 'cache');
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'games_db.json');
-const PYTHON_PATH = process.platform === 'win32' ? 'python' : 'python3'; // On Windows, we'll try standard python, or it can be configured
+const PYTHON_PATH = process.env.PYTHON_PATH || (process.platform === 'win32' ? 'python' : 'python3'); // On Windows, we'll try standard python, or it can be configured
 
 const getCandidateKeysPaths = () => {
     const candidates = [];
@@ -121,7 +121,7 @@ const saveKeysContent = (content) => {
 
 const resolvePythonCmd = () => {
     let pythonCmd = PYTHON_PATH;
-    const customPython = 'C:\\Users\\dadde\\AppData\\Local\\Python\\bin\\python.exe';
+    const customPython = path.join(os.homedir(), 'AppData', 'Local', 'Python', 'bin', 'python.exe');
     if (process.platform === 'win32' && fs.existsSync(customPython)) {
         pythonCmd = `"${customPython}"`;
     }
