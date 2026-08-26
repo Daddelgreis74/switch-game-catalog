@@ -318,50 +318,85 @@ app.get('/api/metadata/:titleId', async (req, res) => {
         });
         clearTimeout(timeoutId);
 
-        if (!response.ok) {
-            return res.status(404).json({ error: 'Keine Metadaten gefunden.' });
+        let html = '';
+        if (response.ok) {
+            html = await response.text();
         }
 
-        const html = await response.text();
-
-        // 1. Description from #gameDescription
-        let description = '';
-        const descMatch = html.match(/<pre[^>]*id="gameDescription"[^>]*>([\s\S]*?)<\/pre>/i);
-        if (descMatch && descMatch[1]) {
-            description = descMatch[1]
-                .replace(/<[^>]+>/g, '')
-                .replace(/&amp;/g, '&')
-                .replace(/&lt;/g, '<')
-                .replace(/&gt;/g, '>')
-                .replace(/&quot;/g, '"')
-                .replace(/&#39;/g, "'")
-                .trim();
-        }
-
-        // 2. Categories / Genres
-        const categories = [];
-        const catMatch = html.match(/<p><strong>(?:Categories|Kategorien):<\/strong>(.*?)<\/p>/i);
-        if (catMatch && catMatch[1]) {
-            const rawCats = catMatch[1].replace(/<[^>]+>/g, '').split(',');
-            for (const cat of rawCats) {
-                const c = cat.trim();
-                if (c && !categories.includes(c)) categories.push(c);
+        const parseHtml = (htmlContent) => {
+            let desc = '';
+            const descMatch = htmlContent.match(/<pre[^>]*id="gameDescription"[^>]*>([\s\S]*?)<\/pre>/i);
+            if (descMatch && descMatch[1]) {
+                desc = descMatch[1]
+                    .replace(/<[^>]+>/g, '')
+                    .replace(/&amp;/g, '&')
+                    .replace(/&lt;/g, '<')
+                    .replace(/&gt;/g, '>')
+                    .replace(/&quot;/g, '"')
+                    .replace(/&#39;/g, "'")
+                    .trim();
             }
-        }
 
-        // 3. Release Date
-        let releaseDate = '';
-        const dateMatch = html.match(/<p><strong>(?:Release Date|Erscheinungsdatum):<\/strong>(.*?)<\/p>/i);
-        if (dateMatch && dateMatch[1]) {
-            releaseDate = dateMatch[1].replace(/<[^>]+>/g, '').trim();
-        }
+            const cats = [];
+            const catMatch = htmlContent.match(/<p><strong>(?:Categories|Kategorien):<\/strong>(.*?)<\/p>/i);
+            if (catMatch && catMatch[1]) {
+                const rawCats = catMatch[1].replace(/<[^>]+>/g, '').split(',');
+                for (const cat of rawCats) {
+                    const c = cat.trim();
+                    if (c && !cats.includes(c)) cats.push(c);
+                }
+            }
 
-        // 4. Screenshots
-        const screenshots = [];
-        const screenMatches = html.match(/https:\/\/api\.ultranx\.ru\/assets\/images\/[a-f0-9]+\.webp/gi) || [];
-        for (const s of screenMatches) {
-            if (!screenshots.includes(s)) screenshots.push(s);
-            if (screenshots.length >= 12) break;
+            let relDate = '';
+            const dateMatch = htmlContent.match(/<p><strong>(?:Release Date|Erscheinungsdatum):<\/strong>(.*?)<\/p>/i);
+            if (dateMatch && dateMatch[1]) {
+                relDate = dateMatch[1].replace(/<[^>]+>/g, '').trim();
+            }
+
+            const screens = [];
+            const screenMatches = htmlContent.match(/https:\/\/api\.ultranx\.ru\/assets\/images\/[a-f0-9]+\.webp/gi) || [];
+            for (const s of screenMatches) {
+                if (!screens.includes(s)) screens.push(s);
+                if (screens.length >= 12) break;
+            }
+
+            return { desc, cats, relDate, screens };
+        };
+
+        let parsed = parseHtml(html);
+        let description = parsed.desc;
+        let categories = parsed.cats;
+        let releaseDate = parsed.relDate;
+        let screenshots = parsed.screens;
+
+        // Fallback to English if description is empty and we originally requested German
+        if ((!description || description.trim() === '') && lang === 'de') {
+            console.log(`German description missing for ${baseTitleId}, trying English fallback...`);
+            try {
+                const fallbackUrl = `https://not.ultranx.ru/en/game/${baseTitleId.toUpperCase()}`;
+                const fbController = new AbortController();
+                const fbTimeoutId = setTimeout(() => fbController.abort(), 6000);
+                const fbResponse = await fetch(fallbackUrl, {
+                    signal: fbController.signal,
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                    }
+                });
+                clearTimeout(fbTimeoutId);
+
+                if (fbResponse.ok) {
+                    const fbHtml = await fbResponse.text();
+                    const fbParsed = parseHtml(fbHtml);
+                    if (fbParsed.desc) {
+                        description = fbParsed.desc;
+                        categories = fbParsed.cats;
+                        screenshots = fbParsed.screens;
+                        if (!releaseDate) releaseDate = fbParsed.relDate;
+                    }
+                }
+            } catch (fbErr) {
+                console.warn(`English fallback failed for ${baseTitleId}: ${fbErr.message}`);
+            }
         }
 
         const metaResult = {

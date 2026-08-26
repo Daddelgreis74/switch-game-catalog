@@ -1,6 +1,6 @@
 {
   "name": "switch-game-catalog",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "NSW Game Catalog & Server - Lightweight self-hosted game library manager",
   "main": "server.js",
   "scripts": {
