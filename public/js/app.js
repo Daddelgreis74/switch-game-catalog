@@ -701,6 +701,7 @@ function processUploadQueue() {
 // AJAX Upload with Progress
 function handleFileUpload(file, callback) {
     const xhr = new XMLHttpRequest();
+    xhr.timeout = 0; // Prevent browser timeout during multi-gigabyte uploads
 
     xhr.upload.addEventListener('progress', (e) => {
         if (e.lengthComputable) {

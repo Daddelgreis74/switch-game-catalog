@@ -156,14 +156,6 @@ app.get('/favicon.ico', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'favicon.svg'));
 });
 
-// Configure fileupload middleware with temp files for large games
-app.use(fileUpload({
-    useTempFiles: true,
-    tempFileDir: tempUploadsDir,
-    limits: { fileSize: 40 * 1024 * 1024 * 1024 }, // 40 GB limit
-    abortOnLimit: true
-}));
-
 const isInsideDir = (parentDir, targetPath) => {
     if (!parentDir || !targetPath) return false;
     const rel = path.relative(path.resolve(parentDir), path.resolve(targetPath));
@@ -431,6 +423,10 @@ app.delete('/api/games/:dbKey', (req, res) => {
 
 // API: Upload game file (Stream-based for high stability with 40GB+ files)
 app.post('/api/upload', (req, res) => {
+    // Disable request and response timeouts for long-running uploads
+    req.setTimeout(0);
+    if (res.setTimeout) res.setTimeout(0);
+
     const fileName = req.query.name;
     if (!fileName) {
         return res.status(400).json({ error: 'Dateiname fehlt im Query-Parameter (?name=...)' });
@@ -451,7 +447,8 @@ app.post('/api/upload', (req, res) => {
 
     console.log(`Piping upload stream to: ${destPath}`);
 
-    const writeStream = fs.createWriteStream(destPath);
+    // High throughput write stream with 1MB chunk buffer
+    const writeStream = fs.createWriteStream(destPath, { highWaterMark: 1024 * 1024 });
     req.pipe(writeStream);
 
     writeStream.on('error', (err) => {
@@ -464,6 +461,14 @@ app.post('/api/upload', (req, res) => {
         res.status(500).json({ error: 'Fehler beim Schreiben der Datei auf Festplatte: ' + err.message });
     });
 
+    req.on('aborted', () => {
+        console.warn(`Upload aborted by client: ${safeName}`);
+        writeStream.destroy();
+        if (fs.existsSync(destPath)) {
+            try { fs.unlinkSync(destPath); } catch (e) {}
+        }
+    });
+
     req.on('error', (err) => {
         console.error(`Request stream error: ${err}`);
         writeStream.destroy();
@@ -471,12 +476,12 @@ app.post('/api/upload', (req, res) => {
             try { fs.unlinkSync(destPath); } catch (e) {}
         }
         if (!res.headersSent) {
-            res.status(500).json({ error: 'Verbindungsabbruch während des Uploads.' });
+            res.status(500).json({ error: 'Verbindungsabbruch während des Uploads: ' + err.message });
         }
     });
 
     writeStream.on('finish', () => {
-        console.log(`Upload completed. Triggering automatic scan...`);
+        console.log(`Upload completed: ${safeName}. Triggering automatic scan...`);
 
         // Trigger scan automatically
         const pythonCmd = resolvePythonCmd();
@@ -495,8 +500,8 @@ app.post('/api/upload', (req, res) => {
     });
 });
 
-// API: Upload prod.keys (supports JSON text payload and multipart upload)
-app.post('/api/upload-keys', (req, res) => {
+// API: Upload prod.keys (supports JSON text payload and multipart upload with isolated middleware)
+app.post('/api/upload-keys', fileUpload({ limits: { fileSize: 10 * 1024 * 1024 } }), (req, res) => {
     let keysContent = '';
 
     // 1. Check if keys were sent as JSON { keysContent: "..." }
@@ -537,7 +542,8 @@ const server = app.listen(PORT, () => {
     console.log(`==================================================`);
 });
 
-// Disable timeout limits for large file uploads (40 GB+)
-server.timeout = 0; 
-server.keepAliveTimeout = 600000; // 10 minutes keep-alive
-server.headersTimeout = 605000; // keep-alive + 5s
+// Disable all socket and request timeouts for massive file uploads (40 GB+)
+server.timeout = 0;
+server.requestTimeout = 0;
+server.keepAliveTimeout = 0;
+server.headersTimeout = 0;
