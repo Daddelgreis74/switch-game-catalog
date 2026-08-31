@@ -421,14 +421,15 @@ async function fetchGames() {
 
 // Update Stats in Header
 function updateStats() {
-    const games = Object.values(gamesData);
-    statCount.textContent = games.length;
+    const flatList = Object.entries(gamesData).map(([key, value]) => ({ dbKey: key, ...value }));
+    const grouped = groupGames(flatList);
+    statCount.textContent = grouped.length;
 
     // Calculate total size of unique physical files
     const uniqueFiles = new Set();
     let totalBytes = 0;
     
-    games.forEach(game => {
+    flatList.forEach(game => {
         if (!uniqueFiles.has(game.filePath)) {
             uniqueFiles.add(game.filePath);
             totalBytes += game.fileSize || 0;
