@@ -11,15 +11,15 @@ The system indexes your game files (`.nsp`, `.nsz`, `.zip`, `.xci`), extracts me
 
 ## ✨ Features
 
-- 🎮 **Automatic File Detection:** Detects base games, updates, and DLCs recursively within your configured games directory.
+- 🎮 **Automatic File Detection & Grouping:** Recursively detects Base Games, Updates, and DLCs (`nsp`, `nsz`, `xci`, `zip`) and groups them under a single Base Title entry.
 - 📦 **Direct ZIP Inspection:** Scans and reads metadata directly from nested ZIP archives without unpacking large 15 GB+ files.
-- 🔑 **On-the-Fly Metadata Decryption:** Reads encrypted `control.nca` metadata to extract official game titles, publishers, supported languages, and original box art icons.
-- ⚡ **High-Performance Caching:** Subsequent scans complete in under 1 second thanks to file signature and modification time caching.
-- 📂 **Modern Web Dashboard:** Sleek Joy-Con neon-themed interface with dark mode, interactive modal detail views, and multilingual support (English & German).
-- 📤 **Drag & Drop Uploads:** Upload game files up to 40 GB directly through your browser with a live progress indicator.
-- 📥 **Direct Downloads:** Download original game backups directly over your local network.
-- 🗑️ **Library Management:** Permanently delete game files and clean up cache directly from the web UI.
-- 🐳 **Docker & TrueNAS-Ready:** Includes a multi-stage Dockerfile that builds `hactool` natively from source on Linux systems (TrueNAS SCALE, Debian, Ubuntu).
+- 🔑 **On-the-Fly Metadata Decryption & Cover Caching:** Reads `control.nca` via `hactool` (`prod.keys`) and automatically enriches missing box art, descriptions, categories, languages, and screenshots via TitleDB (`api.nlib.cc`), including `.nsz` files.
+- 🗄️ **SQLite Persistence:** Stores games, files, users, sessions, ratings, comments, and managed categories/languages in `catalog.db` (`better-sqlite3`).
+- 🔍 **Modern Catalog UI (`/en`, `/de`):** Paginated 45-card grid, live search, multi-select category & language filter modals, sorting, and game detail pages with screenshot carousel.
+- 💬 **Community Features:** User accounts, 5-star game ratings, nested replies, and a floating latest-comments drawer.
+- ⚙️ **Admin Settings (`/:lang/settings`):** Create, rename, and delete categories/languages, and manage users & ranks (**Admin**, **Co-Admin**, **Moderator**, **Member**). The first registered account automatically becomes **Admin**.
+- 📤 **Streaming Uploads & Downloads:** Upload large game files (40 GB+) directly through your browser with live progress, or download backups directly over your local network.
+- 🐳 **Docker & TrueNAS-Ready:** Multi-stage Dockerfile building `hactool` natively from source on Linux (TrueNAS SCALE, Debian, Ubuntu).
 
 ---
 
@@ -78,7 +78,7 @@ The system indexes your game files (`.nsp`, `.nsz`, `.zip`, `.xci`), extracts me
 Install NSW Game Catalog directly through the TrueNAS SCALE web interface:
 
 #### 1️⃣ Preparation (Create Datasets / Directories):
-- **Keys directory:** e.g. `/mnt/tank/apps/switch-catalog/keys/` *(place your `prod.keys` here)*
+- **Config directory:** e.g. `/mnt/tank/apps/switch-catalog/config/` *(stores `catalog.db`, `games_db.json`, and `prod.keys`)*
 - **Cache directory:** e.g. `/mnt/tank/apps/switch-catalog/cache/`
 - **Games directory:** e.g. `/mnt/tank/Spiele/Switch/`
 
@@ -99,18 +99,22 @@ Install NSW Game Catalog directly through the TrueNAS SCALE web interface:
 | `PORT` | `3000` | Internal web port |
 | `GAMES_DIR` | `/games` | Path to games inside container |
 | `KEYS_PATH` | `/config/prod.keys` | Path to keys file inside container |
+| `DB_PATH` | `/config/games_db.json` | Path to scanner JSON database |
+| `SQLITE_PATH` | `/config/catalog.db` | Path to SQLite catalog & community database |
 
-#### 5️⃣ Port Forwarding:
+#### 5️⃣ Port Forwarding & Web Portal:
 | Port Type | Port Number | Protocol |
 | :--- | :--- | :--- |
 | **Container Port** | `3000` | `TCP` |
 | **Node Port / Web Port** | `3000` | `TCP` |
 
+- **Portal Configuration (optional for Web UI button):** Name `Web UI`, Protocol `HTTP`, Use Node IP `true`, Port `3000`, Path `/`
+
 #### 6️⃣ Storage (Host Path Volumes):
 | Host Path (TrueNAS Path - adjust) | Mount Path (Container Path) | Read Only |
 | :--- | :--- | :---: |
 | `/mnt/tank/Spiele/Switch` | `/games` | ❌ *No* |
-| `/mnt/tank/apps/switch-catalog/keys` | `/config` | ✅ *Yes* |
+| `/mnt/tank/apps/switch-catalog/config` | `/config` | ❌ *No* |
 | `/mnt/tank/apps/switch-catalog/cache` | `/app/public/cache` | ❌ *No* |
 
 #### 7️⃣ Security & Access Permissions (Run As User / Group):
@@ -137,12 +141,14 @@ services:
       - PORT=3000
       - GAMES_DIR=/games
       - KEYS_PATH=/config/prod.keys
+      - DB_PATH=/config/games_db.json
+      - SQLITE_PATH=/config/catalog.db
     volumes:
       # Path to your Switch game files
       - /mnt/tank/Spiele/Switch:/games
-      # Path to your prod.keys (read-only)
-      - /mnt/tank/apps/switch-catalog/keys:/config:ro
-      # Cache persistence for extracted covers/icons
+      # Persistent config, SQLite DB, and prod.keys (read-write)
+      - /mnt/tank/apps/switch-catalog/config:/config
+      # Cache persistence for extracted/downloaded covers
       - /mnt/tank/apps/switch-catalog/cache:/app/public/cache
 ```
 
