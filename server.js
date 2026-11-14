@@ -9,8 +9,8 @@ require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const GAMES_DIR = process.env.GAMES_DIR || 'D:\\Games';
-const KEYS_PATH = process.env.KEYS_PATH || 'D:\\prod.keys';
+const GAMES_DIR = process.env.GAMES_DIR || path.join(__dirname, 'games');
+const KEYS_PATH = process.env.KEYS_PATH || path.join(__dirname, 'config', 'prod.keys');
 const CACHE_DIR = path.join(__dirname, 'public', 'cache');
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'games_db.json');
 const SQLITE_PATH = process.env.SQLITE_PATH || path.join(path.dirname(DB_PATH), 'catalog.db');

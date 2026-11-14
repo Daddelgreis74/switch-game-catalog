@@ -47,12 +47,13 @@ The system indexes your game files (`.nsp`, `.nsz`, `.zip`, `.xci`), extracts me
    ```
 
 3. **Configure environment (`.env`):**
-   Create a `.env` file in the root directory:
+   Create a `.env` file in the root directory (adjust the drive letter and paths to match your system, e.g. `C:\...`, `D:\...`, or `./games`):
    ```env
    PORT=3000
-   GAMES_DIR=D:\NintendoGames
-   KEYS_PATH=D:\prod.keys
+   GAMES_DIR=C:\SwitchGames
+   KEYS_PATH=C:\SwitchGames\prod.keys
    ```
+   *(If omitted, `GAMES_DIR` defaults to `./games` and `KEYS_PATH` to `./config/prod.keys` inside the project folder.)*
 
 4. **Provide Hactool:**
    Place the Windows binary of `hactool.exe` into the `bin/hactool.exe` directory.
