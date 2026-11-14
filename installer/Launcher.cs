@@ -211,7 +211,7 @@ namespace NSWGameCatalogLauncher
 
             _trayIcon = new NotifyIcon
             {
-                Icon = SystemIcons.Application,
+                Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath) ?? SystemIcons.Application,
                 Text = "NSW Game Catalog (Port " + _port + ")",
                 ContextMenuStrip = menu,
                 Visible = true

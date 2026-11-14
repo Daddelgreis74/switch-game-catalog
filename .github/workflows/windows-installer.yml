@@ -51,7 +51,7 @@ jobs:
 
           # Compile native Windows GUI launcher (NSWGameCatalog.exe, no .bat/console)
           $csc = "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
-          & $csc /nologo /target:winexe /out:"$stage\NSWGameCatalog.exe" /reference:System.Windows.Forms.dll /reference:System.Drawing.dll "installer\Launcher.cs"
+          & $csc /nologo /target:winexe /win32icon:"installer\app.ico" /out:"$stage\NSWGameCatalog.exe" /reference:System.Windows.Forms.dll /reference:System.Drawing.dll "installer\Launcher.cs"
 
           # Download Portable Python Embeddable (Windows x64)
           $pyZip = "$env:TEMP\python-embed.zip"
