@@ -3,250 +3,178 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NSW Game Catalog & Library</title>
-    <!-- Favicon & Bookmark Icons -->
+    <title>NSW Catalog</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="alternate icon" type="image/png" href="/favicon.png">
     <link rel="apple-touch-icon" href="/favicon.svg">
-    <!-- Google Fonts: Outfit & Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Inter:wght@300;400;500;700&display=swap" rel="stylesheet">
-    <!-- FontAwesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans+Text:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-    <div class="app-container">
-        <!-- Sidebar or top navigation -->
-        <header class="main-header">
-            <div class="logo-area">
-                <div class="switch-logo-wrapper">
-                    <span class="left-joycon"></span>
-                    <span class="right-joycon"></span>
-                </div>
-                <div class="logo-title-wrap">
-                    <h1>NSW <span>Catalog</span></h1>
-                    <span class="version-badge">v1.3.4</span>
-                </div>
-            </div>
-            
-            <div class="stats-bar">
-                <div class="stat-card">
-                    <i class="fa-solid fa-gamepad icon-neon-blue"></i>
-                    <div>
-                        <span class="stat-value" id="stat-count">0</span>
-                        <span class="stat-label" data-i18n="stats.games">Games</span>
-                    </div>
-                </div>
-                <div class="stat-card">
-                    <i class="fa-solid fa-hard-drive icon-neon-red"></i>
-                    <div>
-                        <span class="stat-value" id="stat-size">0 GB</span>
-                        <span class="stat-label" data-i18n="stats.total_size">Total Size</span>
-                    </div>
-                </div>
-            </div>
+    <!-- Top Navigation Header -->
+    <header class="site-header">
+        <div class="header-inner">
+            <a href="/en" class="header-icon-btn brand-home-btn" id="nav-home" title="Home">
+                <span class="material-symbols-outlined">home</span>
+                <span class="brand-name">NSW Catalog</span>
+            </a>
+
+            <form class="header-search-form" id="header-search-form">
+                <input type="search" id="search-input" class="header-search-input" placeholder="Search..." autocomplete="off">
+                <button type="submit" class="header-search-submit" aria-label="Search">
+                    <span class="material-symbols-outlined">search</span>
+                </button>
+            </form>
 
             <div class="header-actions">
-                <!-- Language Switcher -->
-                <div class="lang-switch" id="lang-switch">
-                    <button class="lang-btn active" id="lang-btn-en" data-lang="en">EN</button>
-                    <span class="lang-divider">|</span>
-                    <button class="lang-btn" id="lang-btn-de" data-lang="de">DE</button>
+                <div class="lang-toggle" id="lang-toggle">
+                    <button type="button" class="lang-pill-btn active" data-lang="en">EN</button>
+                    <button type="button" class="lang-pill-btn" data-lang="de">DE</button>
                 </div>
-                <button class="btn btn-secondary" id="toggle-upload-btn">
-                    <i class="fa-solid fa-cloud-arrow-up"></i> <span data-i18n="header.upload">Upload</span>
+                <button type="button" class="header-icon-btn" id="nav-upload-btn" title="Upload &amp; Scan">
+                    <span class="material-symbols-outlined">cloud_upload</span>
                 </button>
-                <button class="btn btn-primary" id="scan-btn">
-                    <i class="fa-solid fa-arrows-rotate"></i> <span data-i18n="header.scan">Scan Library</span>
-                </button>
-            </div>
-        </header>
-
-        <!-- Collapsible Upload Panel -->
-        <section class="upload-panel collapsed" id="upload-panel">
-            <div class="upload-zone" id="drop-zone">
-                <i class="fa-solid fa-cloud-arrow-up upload-icon"></i>
-                <h3 data-i18n="upload.title">Upload Games</h3>
-                <p data-i18n="upload.description">Drag & drop game files (.nsp, .nsz, .zip, .xci) here or click to browse</p>
-                <input type="file" id="file-input" accept=".nsp,.nsz,.zip,.xci" multiple style="display: none;">
-                <button class="btn btn-secondary select-file-btn" onclick="document.getElementById('file-input').click()" data-i18n="upload.select_btn">Select Files</button>
-            </div>
-            
-            <div class="upload-progress-container hidden" id="upload-progress-container">
-                <div class="upload-file-info">
-                    <span id="upload-filename">game.nsz</span>
-                    <span id="upload-percent">0%</span>
-                </div>
-                <div class="progress-bar-wrapper">
-                    <div class="progress-bar-fill" id="progress-bar-fill"></div>
-                </div>
-                <div class="upload-status" id="upload-status" data-i18n="upload.uploading">Uploading...</div>
-            </div>
-        </section>
-
-        <!-- Main Content Area -->
-        <main class="main-content">
-            <!-- Filter and search bar -->
-            <div class="filter-bar">
-                <div class="search-box">
-                    <i class="fa-solid fa-magnifying-glass"></i>
-                    <input type="text" id="search-input" data-i18n-placeholder="filter.search_placeholder" placeholder="Search by game title or Title ID...">
-                </div>
-
-                <div class="filters">
-                    <div class="filter-group">
-                        <label for="type-filter"><i class="fa-solid fa-filter"></i> <span data-i18n="filter.type_label">Type:</span></label>
-                        <select id="type-filter">
-                            <option value="all" data-i18n="filter.all_types">All Types</option>
-                            <option value="Base Game" data-i18n="filter.base_games">Base Games</option>
-                            <option value="Update" data-i18n="filter.updates">Updates</option>
-                            <option value="DLC" data-i18n="filter.dlcs">DLCs</option>
-                        </select>
-                    </div>
-
-                    <div class="filter-group">
-                        <label for="sort-select"><i class="fa-solid fa-sort"></i> <span data-i18n="filter.sort_label">Sort:</span></label>
-                        <select id="sort-select">
-                            <option value="title-asc" data-i18n="filter.sort_title_asc">Title (A-Z)</option>
-                            <option value="title-desc" data-i18n="filter.sort_title_desc">Title (Z-A)</option>
-                            <option value="size-desc" data-i18n="filter.sort_size_desc">Size (Largest)</option>
-                            <option value="size-asc" data-i18n="filter.sort_size_asc">Size (Smallest)</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Games Grid -->
-            <div class="games-grid" id="games-grid">
-                <!-- Placeholder / Loading indicator -->
-                <div class="loading-state" id="loading-state">
-                    <div class="spinner"></div>
-                    <p data-i18n="loading.text">Loading game library...</p>
-                </div>
-                <div class="empty-state hidden" id="empty-state">
-                    <i class="fa-solid fa-box-open"></i>
-                    <h3 data-i18n="empty.title">No games found</h3>
-                    <p data-i18n="empty.description">Add game files to your games folder and click "Scan Library".</p>
-                </div>
-            </div>
-        </main>
-
-        <!-- Game Details Modal -->
-        <div class="modal hidden" id="details-modal">
-            <div class="modal-backdrop" id="modal-backdrop"></div>
-            <div class="modal-content">
-                <button class="modal-close-btn" id="modal-close"><i class="fa-solid fa-xmark"></i></button>
-                <div class="modal-header">
-                    <img id="modal-icon" src="favicon.svg" alt="Game Icon" class="modal-icon">
-                    <div class="modal-title-area">
-                        <div class="modal-header-top-row">
-                            <span class="badge" id="modal-type">Base Game</span>
-                            <span class="release-date-badge hidden" id="modal-release-date"></span>
-                        </div>
-                        <h2 id="modal-title">-</h2>
-                        <p id="modal-publisher">-</p>
-                        <div class="genre-badges" id="modal-genres">
-                            <!-- Genre badges injected here -->
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-body">
-                    <!-- About Game / Description Section -->
-                    <div class="description-section hidden" id="modal-description-section">
-                        <h3><i class="fa-solid fa-align-left"></i> <span data-i18n="modal.about_game">About this Game</span></h3>
-                        <div class="description-content" id="modal-description">
-                            <!-- Description text injected here -->
-                        </div>
-                    </div>
-
-                    <!-- Screenshot Gallery Section -->
-                    <div class="screenshots-section hidden" id="modal-screenshots-section">
-                        <h3><i class="fa-solid fa-images"></i> <span data-i18n="modal.screenshots">Screenshots</span></h3>
-                        <div class="screenshots-gallery" id="modal-screenshots">
-                            <!-- Thumbnails injected here -->
-                        </div>
-                    </div>
-
-                    <div class="info-grid">
-                        <div class="info-item">
-                            <span class="info-label" data-i18n="modal.title_id">Title ID</span>
-                            <span class="info-value code" id="modal-title-id">-</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label" data-i18n="modal.size">File Size</span>
-                            <span class="info-value" id="modal-size">-</span>
-                        </div>
-                        <div class="info-item full-width">
-                            <span class="info-label" data-i18n="modal.filepath">File Path</span>
-                            <span class="info-value code" id="modal-filepath">-</span>
-                        </div>
-                        <div class="info-item full-width" id="modal-nested-item">
-                            <span class="info-label" data-i18n="modal.nestedpath">Path in ZIP</span>
-                            <span class="info-value code" id="modal-nestedpath">-</span>
-                        </div>
-                    </div>
-                    
-                    <div class="languages-section">
-                        <h3 data-i18n="modal.languages">Supported Languages</h3>
-                        <div class="languages-tags" id="modal-languages">
-                            <!-- Tags will be injected here -->
-                        </div>
-                    </div>
-
-                    <div class="files-list-section">
-                        <h3><i class="fa-solid fa-folder-open"></i> <span data-i18n="modal.installed_files">Installed Files</span></h3>
-                        <div class="files-container" id="modal-files-container">
-                            <!-- File rows will be dynamically injected here -->
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer" style="justify-content: flex-end;">
-                    <button class="btn btn-secondary" onclick="hideModal()" data-i18n="modal.close">Close</button>
-                </div>
+                <a href="/en/settings" class="header-icon-btn hidden" id="nav-settings" title="Admin Settings">
+                    <span class="material-symbols-outlined">settings</span>
+                </a>
+                <a href="/en/profile" class="header-icon-btn profile-btn" id="nav-profile" title="Profile">
+                    <span class="material-symbols-outlined">person</span>
+                    <span class="profile-username-badge hidden" id="header-username"></span>
+                </a>
             </div>
         </div>
+    </header>
 
-        <!-- Screenshot Lightbox Modal -->
-        <div class="lightbox-modal hidden" id="lightbox-modal">
-            <div class="lightbox-backdrop" id="lightbox-backdrop"></div>
-            <button class="lightbox-close" id="lightbox-close"><i class="fa-solid fa-xmark"></i></button>
-            <img src="" id="lightbox-img" alt="Screenshot Preview">
+    <!-- Main Content Area -->
+    <main class="page-container" id="app-main">
+        <!-- Views are dynamically rendered here by app.js -->
+    </main>
+
+    <!-- Floating Comments Drawer Trigger & Panel -->
+    <button type="button" class="floating-comments-tab" id="comments-drawer-toggle">
+        <span class="material-symbols-outlined">forum</span>
+        <span data-i18n="drawer.tab">Comments</span>
+    </button>
+
+    <aside class="comments-drawer" id="comments-drawer" aria-hidden="true">
+        <div class="drawer-header">
+            <div class="drawer-title">
+                <span class="material-symbols-outlined">forum</span>
+                <h3 data-i18n="drawer.title">Latest Comments</h3>
+            </div>
+            <button type="button" class="icon-close-btn" id="comments-drawer-close">
+                <span class="material-symbols-outlined">close</span>
+            </button>
         </div>
+        <div class="drawer-body" id="drawer-comments-list"></div>
+        <div class="drawer-footer">
+            <button type="button" class="btn-pill btn-secondary hidden" id="drawer-load-more" data-i18n="drawer.load_more">Load more</button>
+        </div>
+    </aside>
+    <div class="drawer-backdrop hidden" id="drawer-backdrop"></div>
 
-        <!-- Footer with Trademark & Legal Disclaimer -->
-        <footer class="app-footer">
-            <p class="disclaimer-text" data-i18n="footer.disclaimer">
-                Nintendo and Nintendo Switch are registered trademarks of Nintendo Co., Ltd. NSW Game Catalog is an independent open-source application and is not affiliated with, endorsed by, or sponsored by Nintendo.
-            </p>
-        </footer>
+    <!-- Multi-Select Filter Modal (Categories / Languages) -->
+    <div class="modal-overlay hidden" id="filter-modal">
+        <div class="modal-backdrop" id="filter-modal-backdrop"></div>
+        <div class="modal-card filter-modal-card">
+            <div class="modal-header">
+                <h3 id="filter-modal-title">Filter</h3>
+                <button type="button" class="icon-close-btn" id="filter-modal-close">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="modal-body filter-checkbox-grid" id="filter-modal-options"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn-pill btn-ghost" id="filter-modal-clear" data-i18n="filter.clear">Clear</button>
+                <button type="button" class="btn-pill btn-primary" id="filter-modal-apply" data-i18n="filter.apply">Apply</button>
+            </div>
+        </div>
     </div>
 
-    <!-- Keys Upload Modal Overlay -->
-    <div class="modal hidden" id="keys-overlay" style="z-index: 2000;">
+    <!-- Upload & Scan Modal -->
+    <div class="modal-overlay hidden" id="upload-modal">
+        <div class="modal-backdrop" id="upload-modal-backdrop"></div>
+        <div class="modal-card upload-modal-card">
+            <div class="modal-header">
+                <h3><span class="material-symbols-outlined">cloud_upload</span> <span data-i18n="upload.modal_title">Library &amp; Upload</span></h3>
+                <button type="button" class="icon-close-btn" id="upload-modal-close">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="upload-actions-row">
+                    <button type="button" class="btn-pill btn-primary" id="modal-scan-btn">
+                        <span class="material-symbols-outlined">sync</span>
+                        <span data-i18n="upload.scan_btn">Scan Library</span>
+                    </button>
+                    <span class="scan-status-text" id="modal-scan-status"></span>
+                </div>
+                <div class="drop-zone" id="drop-zone">
+                    <span class="material-symbols-outlined drop-icon">upload_file</span>
+                    <p data-i18n="upload.dropzone">Drag &amp; drop <strong>.nsp, .nsz, .xci, .zip</strong> files here</p>
+                    <span class="muted-text" data-i18n="upload.browse">or click to select files (40GB+ stream supported)</span>
+                    <input type="file" id="file-input" multiple accept=".nsp,.nsz,.xci,.xcz,.zip" hidden>
+                </div>
+                <div class="upload-progress-box hidden" id="upload-progress-container">
+                    <div class="progress-meta">
+                        <span id="upload-filename">file.nsp</span>
+                        <span id="upload-percent">0%</span>
+                    </div>
+                    <div class="progress-track">
+                        <div class="progress-fill" id="progress-bar-fill"></div>
+                    </div>
+                    <div class="progress-status" id="upload-status"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Keys Missing Overlay -->
+    <div class="modal-overlay hidden" id="keys-overlay">
         <div class="modal-backdrop"></div>
-        <div class="modal-content" style="max-width: 500px; text-align: center; border: 1.5px solid var(--neon-red); box-shadow: 0 0 30px rgba(255, 60, 95, 0.3);">
-            <div class="modal-header" style="justify-content: center; border-bottom: 1px solid rgba(255, 60, 95, 0.2);">
-                <h2 style="color: var(--neon-red); margin: 0; display: inline-flex; align-items: center; gap: 10px;" data-i18n="keys.title"><i class="fa-solid fa-key"></i> Console Keys Missing</h2>
+        <div class="modal-card keys-modal-card">
+            <div class="modal-header">
+                <h3><span class="material-symbols-outlined" style="color: var(--accent-purple);">key</span> <span data-i18n="keys.title">Console Keys Required</span></h3>
             </div>
-            <div class="modal-body" style="padding: 20px 0;">
-                <p style="margin-bottom: 20px; line-height: 1.6; color: var(--text-main);" data-i18n="keys.description">
-                    To decrypt game metadata and extract title covers, this server requires your <strong>prod.keys</strong>.
-                </p>
-                <div class="drop-zone" id="keys-drop-zone" style="height: 180px; border: 2px dashed rgba(255, 60, 95, 0.3); background: rgba(255, 60, 95, 0.02);">
-                    <div class="drop-zone-content">
-                        <i class="fa-solid fa-cloud-arrow-up" style="color: var(--neon-red); font-size: 2.5rem; margin-bottom: 15px;"></i>
-                        <p data-i18n="keys.dropzone">Drag & drop your <strong>prod.keys</strong> here</p>
-                        <span style="font-size: 0.8rem; color: var(--text-muted);" data-i18n="keys.browse">or click to select</span>
-                    </div>
-                    <input type="file" id="keys-file-input" accept=".keys,*" style="display: none;">
+            <div class="modal-body">
+                <p class="keys-desc" data-i18n="keys.description">To decrypt game headers and extract icons/metadata, please upload your <strong>prod.keys</strong> file.</p>
+                <div class="drop-zone" id="keys-drop-zone">
+                    <span class="material-symbols-outlined drop-icon">key</span>
+                    <p data-i18n="keys.dropzone">Drag &amp; drop <strong>prod.keys</strong> here</p>
+                    <span class="muted-text" data-i18n="keys.browse">or click to browse</span>
+                    <input type="file" id="keys-file-input" accept=".keys,.txt,*" hidden>
                 </div>
-                <div id="keys-upload-status" style="margin-top: 15px; font-size: 0.9rem; font-family: var(--font-display);"></div>
+                <div id="keys-upload-status" class="keys-status"></div>
             </div>
         </div>
     </div>
 
-    <script src="js/app.js"></script>
+    <!-- Screenshot Lightbox -->
+    <div class="lightbox-overlay hidden" id="lightbox-modal">
+        <button type="button" class="lightbox-close-btn" id="lightbox-close">
+            <span class="material-symbols-outlined">close</span>
+        </button>
+        <img src="" alt="Screenshot" id="lightbox-img">
+    </div>
+
+    <!-- Footer -->
+    <footer class="site-footer">
+        <div class="footer-inner">
+            <div class="footer-copy">
+                <span>NSW Game Catalog</span>
+                <span class="footer-dot">•</span>
+                <span data-i18n="footer.disclaimer">Self-hosted library manager. Not affiliated with Nintendo Co., Ltd.</span>
+            </div>
+            <div class="footer-links">
+                <a href="/en/profile" id="footer-profile" data-i18n="footer.profile">Profile</a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="/js/i18n.js"></script>
+    <script src="/js/app.js"></script>
 </body>
 </html>

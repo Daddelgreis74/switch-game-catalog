@@ -8,8 +8,8 @@ RUN cp config.mk.template config.mk && make
 # --- Stage 2: Node.js Runner ---
 FROM node:20-slim
 
-# Install Python 3, libssl, curl and wget (required by hactool and TrueNAS healthchecks)
-RUN apt-get update && apt-get install -y python3 libssl3 curl wget && rm -rf /var/lib/apt/lists/*
+# Install Python 3, build tools (for native SQLite fallback), libssl, curl and wget
+RUN apt-get update && apt-get install -y python3 make g++ libssl3 curl wget && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -18,7 +18,7 @@ COPY package.json ./
 RUN npm install --only=production
 
 # Copy application files
-COPY server.js scanner_helper.py ./
+COPY server.js db.js scanner_helper.py ./
 COPY public/ ./public/
 
 # Copy compiled hactool binary from Stage 1
@@ -34,6 +34,7 @@ ENV PORT=3000
 ENV GAMES_DIR=/games
 ENV KEYS_PATH=/config/prod.keys
 ENV DB_PATH=/config/games_db.json
+ENV SQLITE_PATH=/config/catalog.db
 
 EXPOSE 3000
 
