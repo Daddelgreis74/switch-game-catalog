@@ -1,0 +1,83 @@
+name: Build Windows Installer
+
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-windows-installer:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+
+      - name: Install production dependencies & audit
+        run: |
+          npm install --omit=dev
+          npm audit --omit=dev --audit-level=high || true
+
+      - name: Stage application & portable runtimes
+        shell: pwsh
+        run: |
+          $stage = "dist-win"
+          if (Test-Path $stage) { Remove-Item -Recurse -Force $stage }
+          New-Item -ItemType Directory -Path "$stage\runtime\node" -Force | Out-Null
+          New-Item -ItemType Directory -Path "$stage\runtime\python" -Force | Out-Null
+
+          Copy-Item "server.js", "db.js", "scanner_helper.py", "package.json" -Destination $stage
+          Copy-Item "public" -Destination "$stage\public" -Recurse
+          Copy-Item "node_modules" -Destination "$stage\node_modules" -Recurse
+
+          # Copy matching LTS node.exe so native better-sqlite3 ABI matches 100%
+          $nodeExe = (Get-Command node).Source
+          Copy-Item $nodeExe -Destination "$stage\runtime\node\node.exe"
+
+          # Download Portable Python Embeddable (Windows x64)
+          $pyZip = "$env:TEMP\python-embed.zip"
+          Invoke-WebRequest -Uri "https://www.python.org/ftp/python/3.12.8/python-3.12.8-embed-amd64.zip" -OutFile $pyZip
+          Expand-Archive -Path $pyZip -DestinationPath "$stage\runtime\python" -Force
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          if (-not (Get-Command iscc -ErrorAction SilentlyContinue)) {
+            choco install innosetup -y --no-progress
+          }
+
+      - name: Compile Windows Installer (.exe)
+        shell: pwsh
+        run: |
+          $pkg = Get-Content "package.json" | ConvertFrom-Json
+          $version = $pkg.version
+          if ($env:GITHUB_REF -match '^refs/tags/v(.+)$') {
+            $version = $Matches[1]
+          }
+          $iscc = (Get-Command iscc -ErrorAction SilentlyContinue)?.Source
+          if (-not $iscc) {
+            $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          }
+          & $iscc "/DAppVersion=$version" "installer\switch-game-catalog.iss"
+
+      - name: Upload Installer Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: dist\SwitchGameCatalog-Setup-*.exe
+
+      - name: Attach Installer to GitHub Release (on tag)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist\SwitchGameCatalog-Setup-*.exe

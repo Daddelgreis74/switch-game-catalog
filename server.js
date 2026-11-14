@@ -3,7 +3,7 @@ const fileUpload = require('express-fileupload');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
-const { exec } = require('child_process');
+const { execFile } = require('child_process');
 const { createCatalogDb } = require('./db');
 require('dotenv').config();
 
@@ -130,12 +130,16 @@ const saveKeysContent = (content) => {
 };
 
 const resolvePythonCmd = () => {
-    let pythonCmd = PYTHON_PATH;
+    if (process.env.PYTHON_PATH) return process.env.PYTHON_PATH;
+    const bundledPython = path.join(__dirname, 'runtime', 'python', 'python.exe');
+    if (process.platform === 'win32' && fs.existsSync(bundledPython)) {
+        return bundledPython;
+    }
     const customPython = path.join(os.homedir(), 'AppData', 'Local', 'Python', 'bin', 'python.exe');
     if (process.platform === 'win32' && fs.existsSync(customPython)) {
-        pythonCmd = `"${customPython}"`;
+        return customPython;
     }
-    return pythonCmd;
+    return PYTHON_PATH;
 };
 
 const isInsideDir = (parentDir, targetPath) => {
@@ -698,10 +702,10 @@ const runScannerSync = (callback) => {
     const scannerScript = path.join(__dirname, 'scanner_helper.py');
     const keysPath = getKeysPath();
     const hactoolPath = getHactoolPath();
-    const cmd = `${pythonCmd} "${scannerScript}" "${GAMES_DIR}" "${hactoolPath}" "${keysPath}" "${CACHE_DIR}" "${DB_PATH}"`;
+    const args = [scannerScript, GAMES_DIR, hactoolPath, keysPath, CACHE_DIR, DB_PATH];
 
-    console.log(`Running scan command: ${cmd}`);
-    exec(cmd, { maxBuffer: 50 * 1024 * 1024 }, (error, stdout, stderr) => {
+    console.log(`Running scan command: ${pythonCmd} ${args.join(' ')}`);
+    execFile(pythonCmd, args, { maxBuffer: 50 * 1024 * 1024 }, (error, stdout, stderr) => {
         if (stderr) console.error(`Scanner stderr: ${stderr}`);
         if (error) return callback(error);
 

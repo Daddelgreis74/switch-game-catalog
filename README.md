@@ -35,6 +35,13 @@ The system indexes your game files (`.nsp`, `.nsz`, `.zip`, `.xci`), extracts me
 
 ## 💻 Local Installation (Windows)
 
+### Option A: Windows Installer (`Setup.exe`)
+Download **`SwitchGameCatalog-Setup-<version>.exe`** from the [GitHub Releases](https://github.com/Daddelgreis74/switch-game-catalog/releases) page.
+- Includes portable Node.js & Python runtimes (no manual Node/Python install required).
+- Lets you choose your **Games folder (`GAMES_DIR`)**, **`prod.keys`**, and **Web Port (`PORT`)** during setup and writes `.env` automatically.
+
+### Option B: Manual Installation
+
 1. **Clone repository:**
    ```bash
    git clone https://github.com/Daddelgreis74/switch-game-catalog.git
