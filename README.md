@@ -28,7 +28,7 @@ The system indexes your game files (`.nsp`, `.nsz`, `.zip`, `.xci`), extracts me
 > [!IMPORTANT]
 > **Console Keys (`prod.keys`) Required:**
 > To decrypt game metadata and extract cover images, you must provide your own console keys dumped from your Nintendo Switch console.
-> The key file must be named **`prod.keys`** and mounted/configured in the system (e.g. at `D:\prod.keys` or mounted to `/config/prod.keys`).
+> The key file must be named **`prod.keys`** and mounted/configured in the system (e.g. at `C:\prod.keys` or mounted to `/config/prod.keys`).
 > **No keys, firmware, or copyright-protected files are included with this software.**
 
 ---
