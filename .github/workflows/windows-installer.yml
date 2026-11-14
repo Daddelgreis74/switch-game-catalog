@@ -49,6 +49,10 @@ jobs:
           # Verify staged runtime loads express & better-sqlite3 cleanly
           & "$stage\runtime\node\node.exe" -e "require('./dist-win/node_modules/express'); require('./dist-win/node_modules/better-sqlite3'); console.log('STAGED_RUNTIME_OK');"
 
+          # Compile native Windows GUI launcher (NSWGameCatalog.exe, no .bat/console)
+          $csc = "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
+          & $csc /nologo /target:winexe /out:"$stage\NSWGameCatalog.exe" /reference:System.Windows.Forms.dll /reference:System.Drawing.dll "installer\Launcher.cs"
+
           # Download Portable Python Embeddable (Windows x64)
           $pyZip = "$env:TEMP\python-embed.zip"
           Invoke-WebRequest -Uri "https://www.python.org/ftp/python/3.12.8/python-3.12.8-embed-amd64.zip" -OutFile $pyZip
