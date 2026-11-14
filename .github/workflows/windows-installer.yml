@@ -23,14 +23,16 @@ jobs:
         with:
           node-version: 'lts/*'
 
-      - name: Install production dependencies & audit
-        run: |
-          npm install --omit=dev
-          npm audit --omit=dev --audit-level=high || true
+      - name: Install production dependencies
+        run: npm install --omit=dev
+
+      - name: Run npm security audit
+        run: npm audit --omit=dev --audit-level=high || true
 
       - name: Stage application & portable runtimes
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
           $stage = "dist-win"
           if (Test-Path $stage) { Remove-Item -Recurse -Force $stage }
           New-Item -ItemType Directory -Path "$stage\runtime\node" -Force | Out-Null
@@ -43,6 +45,9 @@ jobs:
           # Copy matching LTS node.exe so native better-sqlite3 ABI matches 100%
           $nodeExe = (Get-Command node).Source
           Copy-Item $nodeExe -Destination "$stage\runtime\node\node.exe"
+
+          # Verify staged runtime loads express & better-sqlite3 cleanly
+          & "$stage\runtime\node\node.exe" -e "require('./dist-win/node_modules/express'); require('./dist-win/node_modules/better-sqlite3'); console.log('STAGED_RUNTIME_OK');"
 
           # Download Portable Python Embeddable (Windows x64)
           $pyZip = "$env:TEMP\python-embed.zip"
