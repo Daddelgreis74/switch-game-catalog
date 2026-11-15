@@ -1340,7 +1340,20 @@
     const dropZone = document.getElementById('drop-zone');
     const fileInput = document.getElementById('file-input');
 
-    document.getElementById('nav-upload-btn').addEventListener('click', () => uploadModal.classList.remove('hidden'));
+    let uploadBatchHasError = false;
+
+    function resetUploadModalProgress() {
+        if (state.isUploading) return;
+        document.getElementById('upload-progress-container').classList.add('hidden');
+        document.getElementById('upload-percent').textContent = '0%';
+        document.getElementById('progress-bar-fill').style.width = '0%';
+        document.getElementById('upload-status').textContent = '';
+    }
+
+    document.getElementById('nav-upload-btn').addEventListener('click', () => {
+        resetUploadModalProgress();
+        uploadModal.classList.remove('hidden');
+    });
     document.getElementById('upload-modal-close').addEventListener('click', () => uploadModal.classList.add('hidden'));
     document.getElementById('upload-modal-backdrop').addEventListener('click', () => uploadModal.classList.add('hidden'));
 
@@ -1369,8 +1382,24 @@
     });
 
     function queueUploads(files) {
+        if (!state.isUploading && state.uploadQueue.length === 0) {
+            uploadBatchHasError = false;
+        }
         for (const f of files) state.uploadQueue.push(f);
+        fileInput.value = '';
         processUploadQueue();
+    }
+
+    function finishUploadItem() {
+        state.isUploading = false;
+        if (state.uploadQueue.length > 0) {
+            processUploadQueue();
+            return;
+        }
+        if (!uploadBatchHasError) {
+            uploadModal.classList.add('hidden');
+            resetUploadModalProgress();
+        }
     }
 
     function processUploadQueue() {
@@ -1404,15 +1433,19 @@
             }
         });
         xhr.addEventListener('load', () => {
-            st.textContent = xhr.status === 200 ? t('upload.success') : 'Upload failed';
-            state.isUploading = false;
-            route();
-            processUploadQueue();
+            if (xhr.status === 200) {
+                st.textContent = t('upload.success');
+                route();
+            } else {
+                uploadBatchHasError = true;
+                st.textContent = 'Upload failed';
+            }
+            finishUploadItem();
         });
         xhr.addEventListener('error', () => {
+            uploadBatchHasError = true;
             st.textContent = 'Network error';
-            state.isUploading = false;
-            processUploadQueue();
+            finishUploadItem();
         });
         xhr.open('POST', `/api/upload?name=${encodeURIComponent(file.name)}`);
         xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
