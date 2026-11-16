@@ -6,7 +6,7 @@ WORKDIR /src
 RUN cp config.mk.template config.mk && make
 
 # --- Stage 2: Node.js Runner ---
-FROM node:20-slim
+FROM node:lts-slim
 
 # Install Python 3, build tools (for native SQLite fallback), libssl, curl and wget
 RUN apt-get update && apt-get install -y python3 make g++ libssl3 curl wget && rm -rf /var/lib/apt/lists/*

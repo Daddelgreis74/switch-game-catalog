@@ -1,6 +1,6 @@
 {
   "name": "switch-game-catalog",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "NSW Game Catalog & Server - Self-hosted Switch catalog & community hub",
   "main": "server.js",
   "scripts": {
