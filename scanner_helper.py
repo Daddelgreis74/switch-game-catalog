@@ -383,6 +383,8 @@ def main():
                         scanned_games.append(meta)
     else:
         print(f"Games directory does not exist: {games_dir}", file=sys.stderr)
+
+    organize_games_by_folder(games_dir, scanned_games)
                     
     new_database = {}
     for game in scanned_games:
@@ -437,6 +439,99 @@ def main():
         
     # Print the games list as JSON to stdout for Node.js
     print(json.dumps(new_database, ensure_ascii=False))
+
+def normalize_base_id(title_id):
+    if title_id and title_id != "unknown" and len(title_id) >= 13:
+        clean = title_id.lower()
+        try:
+            nibble = int(clean[12], 16)
+            base_nibble = format(nibble & 0xE, "x")
+            return clean[:12] + base_nibble + "000"
+        except ValueError:
+            return clean[:13] + "000"
+    return None
+
+def sanitize_folder_name(name):
+    if not name:
+        return ""
+    cleaned = re.sub(r'[<>:"/\\|?*\x00-\x1f]', ' ', str(name))
+    cleaned = re.sub(r'\s+', ' ', cleaned).strip().strip('.')
+    return cleaned[:120].strip()
+
+def organize_games_by_folder(games_dir, scanned_games):
+    if not games_dir or not os.path.exists(games_dir) or not scanned_games:
+        return
+
+    games_dir_abs = os.path.abspath(games_dir)
+    base_titles = {}
+    file_entries = {}
+
+    for game in scanned_games:
+        fp = game.get("filePath")
+        if fp:
+            file_entries.setdefault(fp, []).append(game)
+
+        base_id = normalize_base_id(game.get("titleId"))
+        if not base_id:
+            continue
+
+        title = (game.get("title") or "").strip()
+        if not title or title.lower() == "unknown":
+            continue
+
+        raw_id = (game.get("titleId") or "").lower()
+        suffix = raw_id[-3:] if len(raw_id) > 3 else ""
+        # Priority: Base Game (000) > Update (800) > DLC
+        priority = 3 if suffix == "000" else (2 if suffix == "800" else 1)
+        prev = base_titles.get(base_id)
+        if not prev or priority > prev[0]:
+            base_titles[base_id] = (priority, title)
+
+    for old_path, entries in file_entries.items():
+        if not os.path.exists(old_path):
+            continue
+        old_abs = os.path.abspath(old_path)
+        if os.path.commonpath([games_dir_abs, old_abs]) != games_dir_abs:
+            continue
+
+        base_id = None
+        for e in entries:
+            bid = normalize_base_id(e.get("titleId"))
+            if bid and bid in base_titles:
+                base_id = bid
+                break
+        if not base_id:
+            continue
+
+        folder_name = sanitize_folder_name(base_titles[base_id][1])
+        if not folder_name:
+            continue
+
+        target_dir = os.path.join(games_dir_abs, folder_name)
+        target_path = os.path.join(target_dir, os.path.basename(old_abs))
+        if old_abs == os.path.abspath(target_path):
+            continue
+        if os.path.exists(target_path):
+            print(f"Skipping move (target exists): {target_path}", file=sys.stderr)
+            continue
+
+        try:
+            os.makedirs(target_dir, exist_ok=True)
+            shutil.move(old_abs, target_path)
+            new_mtime = os.path.getmtime(target_path)
+            for e in entries:
+                e["filePath"] = target_path
+                e["modifiedTime"] = new_mtime
+            print(f"Organized into folder '{folder_name}': {os.path.basename(target_path)}", file=sys.stderr)
+
+            old_parent = os.path.dirname(old_abs)
+            if old_parent != games_dir_abs and os.path.isdir(old_parent) and not os.listdir(old_parent):
+                try:
+                    os.rmdir(old_parent)
+                except Exception:
+                    pass
+        except Exception as exc:
+            print(f"Could not move {old_abs} -> {target_path}: {exc}", file=sys.stderr)
 
 if __name__ == "__main__":
     main()
