@@ -101,6 +101,67 @@ def parse_pfs0_header(stream):
         print(f"Error parsing PFS0 header: {e}", file=sys.stderr)
         return None
 
+def parse_hfs0_header(stream, offset):
+    try:
+        stream.seek(offset)
+        header_data = stream.read(16)
+        if len(header_data) < 16:
+            return None
+
+        magic, num_files, string_table_size, reserved = struct.unpack('<4sIII', header_data)
+        if magic != b'HFS0':
+            return None
+
+        entry_size = 64
+        table_data = stream.read(num_files * entry_size)
+        if len(table_data) < num_files * entry_size:
+            return None
+
+        string_table = stream.read(string_table_size)
+        if len(string_table) < string_table_size:
+            return None
+
+        data_start_offset = offset + 16 + num_files * entry_size + string_table_size
+        resolved_entries = {}
+
+        for i in range(num_files):
+            e_offset, e_size, name_offset, _, _, _ = struct.unpack_from('<QQIIQ32s', table_data, i * entry_size)
+            end = string_table.find(b'\x00', name_offset)
+            if end == -1:
+                end = len(string_table)
+            name = string_table[name_offset:end].decode('utf-8', errors='ignore')
+            resolved_entries[name] = {
+                'offset': data_start_offset + e_offset,
+                'size': e_size
+            }
+
+        return resolved_entries
+    except Exception as e:
+        print(f"Error parsing HFS0 header: {e}", file=sys.stderr)
+        return None
+
+def parse_xci_secure_hfs0(stream):
+    try:
+        for base in (0, 0x1000):
+            stream.seek(base + 0x100)
+            if stream.read(4) == b'HEAD':
+                stream.seek(base + 0x130)
+                hfs0_offset = struct.unpack('<Q', stream.read(8))[0]
+                root_entries = parse_hfs0_header(stream, base + hfs0_offset)
+                if not root_entries or 'secure' not in root_entries:
+                    return None
+                return parse_hfs0_header(stream, root_entries['secure']['offset'])
+        return None
+    except Exception as e:
+        print(f"Error parsing XCI HFS0: {e}", file=sys.stderr)
+        return None
+
+def extract_title_id_from_filename(filename):
+    if not filename:
+        return None
+    m = re.search(r'\[([0-9a-fA-F]{16})\]', os.path.basename(filename))
+    return m.group(1).lower() if m else None
+
 def clean_title_from_filename(filename):
     base = os.path.splitext(os.path.basename(filename))[0]
     cleaned = re.sub(r'\[.*?\]|\(.*?\)', '', base).replace('_', ' ').strip()
@@ -131,67 +192,97 @@ def extract_and_parse_control(stream, pfs0_files, hactool_path, keys_path, cache
                     true_title_id = potential_id.lower()
                     break
 
-    for name, entry in pfs0_files.items():
-        if name.endswith(".nca"):
-            if "control" in name.lower() or entry["size"] < 10 * 1024 * 1024:
-                control_entry = (name, entry)
-                break
-                
-    if not control_entry:
-        for name, entry in pfs0_files.items():
-            if name.endswith(".nca"):
-                control_entry = (name, entry)
-                break
-                
-    if not control_entry:
+    nca_candidates = [(name, entry) for name, entry in pfs0_files.items() if name.endswith(".nca")]
+    if not nca_candidates:
         return None
-        
-    control_name, entry = control_entry
-    temp_nca_path = os.path.join(temp_dir, f"temp_control_{os.getpid()}_{control_name}")
-    try:
-        stream.seek(entry["offset"])
-        with open(temp_nca_path, "wb") as f:
-            bytes_left = entry["size"]
-            while bytes_left > 0:
-                chunk = stream.read(min(bytes_left, 1024 * 1024))
-                if not chunk:
-                    break
-                f.write(chunk)
-                bytes_left -= len(chunk)
-    except Exception as e:
-        print(f"Error extracting control NCA: {e}", file=sys.stderr)
-        return None
-            
-    romfs_temp_dir = os.path.join(temp_dir, f"romfs_{os.getpid()}")
-    if os.path.exists(romfs_temp_dir):
-        try: shutil.rmtree(romfs_temp_dir)
-        except Exception: pass
-    os.makedirs(romfs_temp_dir, exist_ok=True)
-    
-    cmd = [
-        hactool_path,
-        "-k", keys_path,
-        f"--romfsdir={romfs_temp_dir}",
-        temp_nca_path
-    ]
-    
-    try:
-        result = subprocess.run(cmd, capture_output=True, text=True, errors='ignore', timeout=60)
-        if result.returncode != 0:
-            print(f"hactool stderr: {result.stderr}", file=sys.stderr)
-    except subprocess.TimeoutExpired:
-        print(f"hactool timed out on {temp_nca_path}", file=sys.stderr)
-        result = None
-    except Exception as e:
-        print(f"Error running hactool: {e}", file=sys.stderr)
-        result = None
+
+    def nca_sort_key(item):
+        name, entry = item
+        low = name.lower()
+        is_cnmt = low.endswith(".cnmt.nca")
+        is_control = "control" in low
+        is_small = entry["size"] < 20 * 1024 * 1024
+        # Prefer explicit control, then non-cnmt small NCAs (largest small first so ~1MB Control beats tiny LegalInfo), then rest
+        if is_control:
+            tier = 0
+        elif not is_cnmt and is_small:
+            tier = 1
+        elif not is_cnmt:
+            tier = 2
+        else:
+            tier = 3
+        return (tier, -entry["size"] if is_small else entry["size"])
+
+    nca_candidates.sort(key=nca_sort_key)
 
     metadata = {}
-    nacp_path = os.path.join(romfs_temp_dir, "control.nacp")
-    if os.path.exists(nacp_path):
-        metadata = parse_nacp(nacp_path)
-    
     title_id = true_title_id
+    icon_src_path = None
+    final_romfs_dir = None
+
+    for control_name, entry in nca_candidates[:4]:
+        temp_nca_path = os.path.join(temp_dir, f"temp_control_{os.getpid()}_{control_name}")
+        romfs_temp_dir = os.path.join(temp_dir, f"romfs_{os.getpid()}")
+        if os.path.exists(romfs_temp_dir):
+            try: shutil.rmtree(romfs_temp_dir)
+            except Exception: pass
+        os.makedirs(romfs_temp_dir, exist_ok=True)
+
+        try:
+            stream.seek(entry["offset"])
+            with open(temp_nca_path, "wb") as f:
+                bytes_left = entry["size"]
+                while bytes_left > 0:
+                    chunk = stream.read(min(bytes_left, 1024 * 1024))
+                    if not chunk:
+                        break
+                    f.write(chunk)
+                    bytes_left -= len(chunk)
+        except Exception as e:
+            print(f"Error extracting control NCA: {e}", file=sys.stderr)
+            try:
+                if os.path.exists(temp_nca_path): os.remove(temp_nca_path)
+                if os.path.exists(romfs_temp_dir): shutil.rmtree(romfs_temp_dir)
+            except Exception: pass
+            continue
+
+        cmd = [
+            hactool_path,
+            "-k", keys_path,
+            f"--romfsdir={romfs_temp_dir}",
+            temp_nca_path
+        ]
+
+        result = None
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, errors='ignore', timeout=60)
+            if result.returncode != 0:
+                print(f"hactool stderr: {result.stderr}", file=sys.stderr)
+        except subprocess.TimeoutExpired:
+            print(f"hactool timed out on {temp_nca_path}", file=sys.stderr)
+        except Exception as e:
+            print(f"Error running hactool: {e}", file=sys.stderr)
+
+        if not title_id and result and result.stdout:
+            for line in result.stdout.splitlines():
+                if "Title ID:" in line:
+                    title_id = line.split("Title ID:")[1].strip().lower()
+                    break
+
+        nacp_path = os.path.join(romfs_temp_dir, "control.nacp")
+        if os.path.exists(nacp_path):
+            metadata = parse_nacp(nacp_path)
+            final_romfs_dir = romfs_temp_dir
+            try:
+                if os.path.exists(temp_nca_path): os.remove(temp_nca_path)
+            except Exception: pass
+            break
+
+        try:
+            if os.path.exists(temp_nca_path): os.remove(temp_nca_path)
+            if os.path.exists(romfs_temp_dir): shutil.rmtree(romfs_temp_dir)
+        except Exception: pass
+
     game_title = "Unknown Game"
     publisher = "Unknown Publisher"
     
@@ -210,14 +301,16 @@ def extract_and_parse_control(stream, pfs0_files, hactool_path, keys_path, cache
         game_title = metadata[first_lang]["name"]
         publisher = metadata[first_lang]["publisher"]
         
-    if not title_id and result and result.stdout:
-        for line in result.stdout.splitlines():
-            if "Title ID:" in line:
-                title_id = line.split("Title ID:")[1].strip().lower()
-                break
-            
+    if (not title_id or title_id == "unknown") and file_path:
+        title_id = extract_title_id_from_filename(file_path)
+
     if not title_id:
         title_id = "unknown"
+
+    if file_path and file_path.lower().endswith(('.xci', '.xcz')) and title_id != "unknown" and not title_id.endswith("000"):
+        fname_id = extract_title_id_from_filename(file_path)
+        if not fname_id or fname_id.endswith("000"):
+            title_id = normalize_base_id(title_id) or title_id
         
     # Fallback to filename if title is unknown
     if (not game_title or game_title == "Unknown Game") and file_path:
@@ -225,14 +318,14 @@ def extract_and_parse_control(stream, pfs0_files, hactool_path, keys_path, cache
         if publisher == "Unknown Publisher":
             publisher = ""
         
-    icon_src_path = None
-    if os.path.exists(os.path.join(romfs_temp_dir, "icon_German.dat")):
-        icon_src_path = os.path.join(romfs_temp_dir, "icon_German.dat")
-    elif os.path.exists(romfs_temp_dir):
-        for file in os.listdir(romfs_temp_dir):
-            if file.startswith("icon_") and file.endswith(".dat"):
-                icon_src_path = os.path.join(romfs_temp_dir, file)
-                break
+    if final_romfs_dir:
+        if os.path.exists(os.path.join(final_romfs_dir, "icon_German.dat")):
+            icon_src_path = os.path.join(final_romfs_dir, "icon_German.dat")
+        elif os.path.exists(final_romfs_dir):
+            for file in os.listdir(final_romfs_dir):
+                if file.startswith("icon_") and file.endswith(".dat"):
+                    icon_src_path = os.path.join(final_romfs_dir, file)
+                    break
                 
     if icon_src_path and title_id != "unknown" and os.path.exists(cache_dir):
         icon_dest_path = os.path.join(cache_dir, f"{title_id}.jpg")
@@ -250,11 +343,8 @@ def extract_and_parse_control(stream, pfs0_files, hactool_path, keys_path, cache
             "icon": f"/cache/{title_id}.jpg" if icon_src_path else None
         }
     finally:
-        if os.path.exists(temp_nca_path):
-            try: os.remove(temp_nca_path)
-            except Exception: pass
-        if os.path.exists(romfs_temp_dir):
-            try: shutil.rmtree(romfs_temp_dir)
+        if final_romfs_dir and os.path.exists(final_romfs_dir):
+            try: shutil.rmtree(final_romfs_dir)
             except Exception: pass
 
 def scan_file(file_path, hactool_path, keys_path, cache_dir, temp_dir):
@@ -265,7 +355,7 @@ def scan_file(file_path, hactool_path, keys_path, cache_dir, temp_dir):
         try:
             with zipfile.ZipFile(file_path, 'r') as z:
                 for member in z.namelist():
-                    if member.endswith('.nsz') or member.endswith('.nsp'):
+                    if member.lower().endswith(('.nsz', '.nsp')):
                         print(f"  Found nested file: {member}", file=sys.stderr)
                         with z.open(member) as stream:
                             pfs0_files = parse_pfs0_header(stream)
@@ -301,6 +391,35 @@ def scan_file(file_path, hactool_path, keys_path, cache_dir, temp_dir):
                         return [meta]
         except Exception as e:
             print(f"Error scanning NSP/NSZ {file_path}: {e}", file=sys.stderr)
+
+    elif ext in ['.xci', '.xcz']:
+        try:
+            with open(file_path, 'rb') as stream:
+                hfs0_files = parse_xci_secure_hfs0(stream)
+                meta = None
+                if hfs0_files:
+                    meta = extract_and_parse_control(
+                        stream, hfs0_files, hactool_path, keys_path, cache_dir, temp_dir, file_path=file_path
+                    )
+                if not meta:
+                    fallback_id = extract_title_id_from_filename(file_path)
+                    if fallback_id:
+                        meta = {
+                            "titleId": fallback_id,
+                            "title": clean_title_from_filename(file_path),
+                            "publisher": "",
+                            "languages": [],
+                            "icon": None
+                        }
+                if meta:
+                    meta["fileName"] = os.path.basename(file_path)
+                    meta["nestedPath"] = None
+                    meta["filePath"] = file_path
+                    meta["fileSize"] = os.path.getsize(file_path)
+                    meta["modifiedTime"] = os.path.getmtime(file_path)
+                    return [meta]
+        except Exception as e:
+            print(f"Error scanning XCI/XCZ {file_path}: {e}", file=sys.stderr)
             
     return []
 
@@ -358,7 +477,7 @@ def main():
             for file in files:
                 file_path = os.path.join(root, file)
                 ext = os.path.splitext(file)[1].lower()
-                if ext not in ['.nsp', '.nsz', '.xci', '.zip']:
+                if ext not in ['.nsp', '.nsz', '.xci', '.xcz', '.zip']:
                     continue
                     
                 try:
@@ -370,10 +489,16 @@ def main():
                 # Check cache
                 cached_entries = [entry for entry in database.values() if entry.get("filePath") == file_path]
                 if cached_entries and cached_entries[0].get("fileSize") == file_size and cached_entries[0].get("modifiedTime") == mod_time:
-                    for entry in database.values():
-                        if entry.get("filePath") == file_path:
-                            scanned_games.append(entry)
-                    continue
+                    stale_xci = False
+                    if ext in ['.xci', '.xcz']:
+                        fname_id = extract_title_id_from_filename(file_path)
+                        if not fname_id or fname_id.endswith("000"):
+                            stale_xci = any((entry.get("titleId") or "") != "unknown" and not (entry.get("titleId") or "").endswith("000") for entry in cached_entries)
+                    if not stale_xci:
+                        for entry in database.values():
+                            if entry.get("filePath") == file_path:
+                                scanned_games.append(entry)
+                        continue
                     
                 print(f"Scanning file: {file} ...", file=sys.stderr)
                 meta_list = scan_file(file_path, hactool_path, keys_path, cache_dir, temp_dir)
