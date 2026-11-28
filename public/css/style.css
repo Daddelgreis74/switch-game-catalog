@@ -433,43 +433,264 @@ button, input, select, textarea {
     color: var(--text-primary);
 }
 
-.detail-hero-card {
+/* --- Game Detail (notUltraNX-inspired) --- */
+.detail-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.86rem;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+}
+
+.detail-breadcrumb a {
+    color: var(--text-secondary);
+    transition: color 0.15s ease;
+}
+
+.detail-breadcrumb a:hover {
+    color: var(--accent-purple);
+}
+
+.breadcrumb-sep {
+    opacity: 0.5;
+}
+
+.breadcrumb-current {
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.detail-hero-banner {
+    position: relative;
     background: var(--bg-surface);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-lg);
-    padding: 24px;
-    display: grid;
-    grid-template-columns: 220px 1fr;
-    gap: 28px;
-    margin-bottom: 24px;
-}
-
-.detail-icon-wrap {
-    width: 220px;
-    height: 220px;
-    border-radius: var(--radius-md);
+    padding: 28px 30px;
+    margin-bottom: 20px;
     overflow: hidden;
-    background: var(--bg-elevated);
-    border: 1px solid var(--border-subtle);
+    min-height: 220px;
+    display: flex;
+    align-items: center;
 }
 
-.detail-icon-wrap img {
+.detail-hero-art {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 52%;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.detail-hero-art img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    opacity: 0.42;
+    filter: saturate(1.1);
 }
 
-.detail-header-info h1 {
-    font-size: 1.75rem;
-    font-weight: 700;
+.detail-hero-art::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, var(--bg-surface) 0%, rgba(22, 23, 28, 0.72) 45%, rgba(22, 23, 28, 0.18) 100%);
+}
+
+.detail-hero-content {
+    position: relative;
+    z-index: 1;
+    max-width: 65%;
+}
+
+.detail-platform-label {
+    display: inline-block;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--accent-purple);
     margin-bottom: 6px;
-    line-height: 1.25;
+}
+
+.detail-hero-content h1 {
+    font-size: 1.85rem;
+    font-weight: 700;
+    line-height: 1.2;
+    margin-bottom: 6px;
 }
 
 .detail-publisher {
     color: var(--text-muted);
     font-size: 0.95rem;
+    margin-bottom: 12px;
+}
+
+.detail-hero-cats {
+    margin-top: 0;
     margin-bottom: 14px;
+}
+
+.detail-columns {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+    gap: 18px;
+    align-items: start;
+    margin-bottom: 20px;
+}
+
+.detail-gallery-card,
+.detail-facts-card {
+    margin-bottom: 0;
+}
+
+.detail-panel-heading {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--accent-purple);
+    margin-bottom: 14px;
+}
+
+.facts-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.fact-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.fact-row:last-child {
+    border-bottom: none;
+}
+
+.fact-row-wrap {
+    align-items: flex-start;
+}
+
+.fact-label {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.fact-value {
+    font-size: 0.88rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    text-align: right;
+}
+
+.fact-langs {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 6px;
+}
+
+.lang-chip-btn {
+    cursor: pointer;
+    transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+}
+
+.lang-chip-btn:hover {
+    border-color: var(--accent-purple);
+    color: #fff;
+    background: var(--accent-purple-soft);
+}
+
+.copy-tid-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-elevated);
+    color: var(--text-primary);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.copy-tid-btn:hover {
+    border-color: var(--accent-purple);
+}
+
+.copy-tid-btn .material-symbols-outlined {
+    font-size: 15px;
+    color: var(--text-muted);
+}
+
+.copy-tid-btn.copied {
+    border-color: #10b981;
+    color: #34d399;
+}
+
+.copy-tid-btn.copied .material-symbols-outlined {
+    color: #34d399;
+}
+
+.facts-actions {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-subtle);
+}
+
+.facts-edit-btn {
+    width: 100%;
+    height: 36px;
+    justify-content: center;
+    font-size: 0.84rem;
+}
+
+/* --- Description Accordion --- */
+.detail-about-accordion {
+    padding: 0;
+    overflow: hidden;
+}
+
+.detail-about-summary {
+    list-style: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 24px;
+    cursor: pointer;
+    font-size: 1.08rem;
+    font-weight: 700;
+    color: var(--accent-purple);
+    user-select: none;
+}
+
+.detail-about-summary::-webkit-details-marker {
+    display: none;
+}
+
+.detail-about-chevron {
+    color: var(--text-muted);
+    transition: transform 0.2s ease;
+}
+
+.detail-about-accordion[open] .detail-about-chevron {
+    transform: rotate(180deg);
+}
+
+.detail-about-body {
+    padding: 0 24px 22px;
+    border-top: 1px solid var(--border-subtle);
+    padding-top: 16px;
 }
 
 .star-rating-widget {
@@ -1335,13 +1556,19 @@ button, input, select, textarea {
 
 /* --- Responsive --- */
 @media (max-width: 820px) {
-    .detail-hero-card {
+    .detail-columns {
         grid-template-columns: 1fr;
     }
-    .detail-icon-wrap {
-        width: 160px;
-        height: 160px;
-        margin: 0 auto;
+    .detail-hero-banner {
+        padding: 20px;
+        min-height: 0;
+    }
+    .detail-hero-art {
+        width: 100%;
+        opacity: 0.35;
+    }
+    .detail-hero-content {
+        max-width: 100%;
     }
     .brand-name {
         display: none;

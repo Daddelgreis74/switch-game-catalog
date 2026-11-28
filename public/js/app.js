@@ -492,7 +492,13 @@
 
         const g = await res.json();
         const iconSrc = g.icon ? `/${g.icon.replace(/^\/+/, '')}` : '/favicon.svg';
+        const heroArtSrc = (g.screenshots && g.screenshots.length > 0) ? g.screenshots[0] : iconSrc;
+        const galleryImages = (g.screenshots && g.screenshots.length > 0) ? g.screenshots : [iconSrc];
         const description = (state.lang === 'de' && g.descriptionDe) ? g.descriptionDe : g.descriptionEn;
+        const ratingCount = g.ratingCount || 0;
+        const ratingText = ratingCount > 0
+            ? `${g.ratingAvg ? g.ratingAvg.toFixed(1) : '0.0'} ${t('detail.rating_count', { count: ratingCount })}`
+            : t('detail.no_ratings');
 
         const starsHtml = [1, 2, 3, 4, 5].map(n => `
             <button type="button" class="star-btn ${n <= Math.round(g.userRating || g.ratingAvg) ? 'filled' : ''}" data-star="${n}" title="${n}/5">
@@ -504,36 +510,37 @@
             `<button type="button" class="cat-badge" data-cat-jump="${escapeHtml(c)}">${escapeHtml(c)}</button>`
         ).join('');
 
-        const langsHtml = (g.languages || []).map(l =>
-            `<span class="lang-chip">${escapeHtml(l)}</span>`
-        ).join('');
+        const langsHtml = (g.languages || []).length
+            ? g.languages.map(l =>
+                `<button type="button" class="lang-chip lang-chip-btn" data-lang-jump="${escapeHtml(l)}">${escapeHtml(l)}</button>`
+            ).join('')
+            : `<span class="muted-text">-</span>`;
 
-        let carouselHtml = '';
-        if (g.screenshots && g.screenshots.length > 0) {
-            const thumbs = g.screenshots.map((src, idx) => `
-                <button type="button" class="carousel-thumb-btn ${idx === 0 ? 'active' : ''}" data-slide="${idx}">
-                    <img src="${escapeHtml(src)}" alt="Screenshot ${idx + 1}" loading="lazy">
-                </button>
-            `).join('');
-            carouselHtml = `
-                <section class="detail-section-card">
-                    <h2 class="detail-section-title"><span class="material-symbols-outlined">photo_library</span> ${escapeHtml(t('detail.screenshots'))}</h2>
-                    <div class="carousel-main-wrap">
-                        <img src="${escapeHtml(g.screenshots[0])}" alt="Screenshot" class="carousel-main-img" id="carousel-main-img">
-                        <button type="button" class="carousel-nav-btn prev" id="carousel-prev"><span class="material-symbols-outlined">chevron_left</span></button>
-                        <button type="button" class="carousel-nav-btn next" id="carousel-next"><span class="material-symbols-outlined">chevron_right</span></button>
-                    </div>
-                    <div class="carousel-thumbs">${thumbs}</div>
-                </section>
-            `;
-        }
+        const thumbsHtml = galleryImages.length > 1 ? `
+            <div class="carousel-thumbs">
+                ${galleryImages.map((src, idx) => `
+                    <button type="button" class="carousel-thumb-btn ${idx === 0 ? 'active' : ''}" data-slide="${idx}" aria-label="Image ${idx + 1}">
+                        <img src="${escapeHtml(src)}" alt="Screenshot ${idx + 1}" loading="lazy">
+                    </button>
+                `).join('')}
+            </div>
+        ` : '';
+
+        const navBtnsHtml = galleryImages.length > 1 ? `
+            <button type="button" class="carousel-nav-btn prev" id="carousel-prev" aria-label="Previous image"><span class="material-symbols-outlined">chevron_left</span></button>
+            <button type="button" class="carousel-nav-btn next" id="carousel-next" aria-label="Next image"><span class="material-symbols-outlined">chevron_right</span></button>
+        ` : '';
 
         const descHtml = description ? `
-            <section class="detail-section-card">
-                <h2 class="detail-section-title"><span class="material-symbols-outlined">description</span> ${escapeHtml(t('detail.description'))}</h2>
-                <p class="description-text clamped" id="detail-desc-text">${escapeHtml(description)}</p>
-                <button type="button" class="read-more-btn" id="detail-read-more">${escapeHtml(t('detail.read_more'))}</button>
-            </section>
+            <details class="detail-section-card detail-about-accordion">
+                <summary class="detail-about-summary">
+                    <span>${escapeHtml(t('detail.game_description'))}</span>
+                    <span class="material-symbols-outlined detail-about-chevron">expand_more</span>
+                </summary>
+                <div class="detail-about-body">
+                    <p class="description-text">${escapeHtml(description)}</p>
+                </div>
+            </details>
         ` : '';
 
         const filesRows = (g.files || []).map(f => {
@@ -560,57 +567,76 @@
         }).join('');
 
         appMain.innerHTML = `
-            <a href="/${state.lang}" class="detail-back-link" id="detail-back-btn">
-                <span class="material-symbols-outlined">arrow_back</span>
-                <span>${escapeHtml(t('detail.back'))}</span>
-            </a>
+            <nav class="detail-breadcrumb" aria-label="Breadcrumb">
+                <a href="/${state.lang}" id="detail-back-btn">${escapeHtml(t('detail.catalog_crumb'))}</a>
+                <span class="breadcrumb-sep">/</span>
+                <span class="breadcrumb-current">${escapeHtml(g.title)}</span>
+            </nav>
 
-            <section class="detail-hero-card">
-                <div class="detail-icon-wrap">
-                    <img src="${escapeHtml(iconSrc)}" alt="${escapeHtml(g.title)}" onerror="this.src='/favicon.svg'">
+            <section class="detail-hero-banner">
+                <div class="detail-hero-art" aria-hidden="true">
+                    <img src="${escapeHtml(heroArtSrc)}" alt="" onerror="this.src='/favicon.svg'">
                 </div>
-                <div class="detail-header-info">
+                <div class="detail-hero-content">
+                    <span class="detail-platform-label">${escapeHtml(t('detail.platform'))}</span>
                     <h1>${escapeHtml(g.title)}</h1>
                     <div class="detail-publisher">${escapeHtml(g.publisher || '-')}</div>
-
+                    ${catsHtml ? `<div class="badge-group detail-hero-cats">${catsHtml}</div>` : ''}
                     <div class="star-rating-widget">
                         <div class="stars-row" id="detail-stars">${starsHtml}</div>
-                        <span class="rating-summary-text" id="detail-rating-summary">
-                            ${g.ratingAvg ? g.ratingAvg.toFixed(1) : '0.0'} ${escapeHtml(t('detail.rating_count', { count: g.ratingCount || 0 }))}
-                        </span>
-                    </div>
-
-                    <div class="detail-meta-grid">
-                        <div class="meta-box">
-                            <span class="meta-label">${escapeHtml(t('detail.title_id'))}</span>
-                            <span class="meta-value">${escapeHtml(g.titleId.toUpperCase())}</span>
-                        </div>
-                        <div class="meta-box">
-                            <span class="meta-label">${escapeHtml(t('detail.release_date'))}</span>
-                            <span class="meta-value">${escapeHtml(formatDate(g.releaseDate))}</span>
-                        </div>
-                        <div class="meta-box">
-                            <span class="meta-label">${escapeHtml(t('detail.base_size'))}</span>
-                            <span class="meta-value">${escapeHtml(formatSize(g.baseSize || g.totalSize))}</span>
-                        </div>
-                        <div class="meta-box">
-                            <span class="meta-label">${escapeHtml(t('detail.players'))}</span>
-                            <span class="meta-value">${escapeHtml(g.players || '1+')}</span>
-                        </div>
-                    </div>
-
-                    ${catsHtml ? `<div class="badge-group">${catsHtml}</div>` : ''}
-                    ${langsHtml ? `<div class="badge-group">${langsHtml}</div>` : ''}
-                    <div class="badge-group" style="margin-top:8px;">
-                        <button type="button" class="btn-pill btn-secondary" id="btn-edit-taxonomy" style="height:32px;padding:0 14px;font-size:0.82rem;">
-                            <span class="material-symbols-outlined" style="font-size:16px;">tune</span>
-                            <span>${escapeHtml(t('detail.edit_taxonomy'))}</span>
-                        </button>
+                        <span class="rating-summary-text" id="detail-rating-summary">${escapeHtml(ratingText)}</span>
                     </div>
                 </div>
             </section>
 
-            ${carouselHtml}
+            <div class="detail-columns">
+                <section class="detail-section-card detail-gallery-card">
+                    <h2 class="detail-panel-heading">${escapeHtml(t('detail.gallery'))}</h2>
+                    <div class="carousel-main-wrap">
+                        <img src="${escapeHtml(galleryImages[0])}" alt="${escapeHtml(g.title)}" class="carousel-main-img" id="carousel-main-img" onerror="this.src='/favicon.svg'">
+                        ${navBtnsHtml}
+                    </div>
+                    ${thumbsHtml}
+                </section>
+
+                <aside class="detail-section-card detail-facts-card">
+                    <h2 class="detail-panel-heading">${escapeHtml(t('detail.game_info'))}</h2>
+                    <dl class="facts-list">
+                        <div class="fact-row">
+                            <dt class="fact-label">${escapeHtml(t('detail.release_date'))}</dt>
+                            <dd class="fact-value">${escapeHtml(formatDate(g.releaseDate))}</dd>
+                        </div>
+                        <div class="fact-row">
+                            <dt class="fact-label">${escapeHtml(t('detail.size'))}</dt>
+                            <dd class="fact-value">${escapeHtml(formatSize(g.baseSize || g.totalSize))}</dd>
+                        </div>
+                        <div class="fact-row">
+                            <dt class="fact-label">${escapeHtml(t('detail.players'))}</dt>
+                            <dd class="fact-value">${escapeHtml(g.players || '1+')}</dd>
+                        </div>
+                        <div class="fact-row fact-row-wrap">
+                            <dt class="fact-label">${escapeHtml(t('detail.languages'))}</dt>
+                            <dd class="fact-value fact-langs">${langsHtml}</dd>
+                        </div>
+                        <div class="fact-row">
+                            <dt class="fact-label">${escapeHtml(t('detail.title_id'))}</dt>
+                            <dd class="fact-value">
+                                <button type="button" class="copy-tid-btn" id="copy-title-id-btn" title="${escapeHtml(t('detail.copy_title_id'))}">
+                                    <code>${escapeHtml(g.titleId.toUpperCase())}</code>
+                                    <span class="material-symbols-outlined" id="copy-tid-icon">content_copy</span>
+                                </button>
+                            </dd>
+                        </div>
+                    </dl>
+                    <div class="facts-actions">
+                        <button type="button" class="btn-pill btn-secondary facts-edit-btn" id="btn-edit-taxonomy">
+                            <span class="material-symbols-outlined" style="font-size:16px;">tune</span>
+                            <span>${escapeHtml(t('detail.edit_taxonomy'))}</span>
+                        </button>
+                    </div>
+                </aside>
+            </div>
+
             ${descHtml}
 
             <section class="detail-section-card">
@@ -618,7 +644,7 @@
                 <div class="files-list">${filesRows}</div>
             </section>
 
-            <section class="detail-section-card">
+            <section class="detail-section-card" id="comments">
                 <h2 class="detail-section-title"><span class="material-symbols-outlined">forum</span> ${escapeHtml(t('detail.comments_title'))}</h2>
                 <div id="detail-comment-form-wrap"></div>
                 <div class="comment-thread" id="detail-comments-thread"></div>
@@ -634,6 +660,42 @@
             btn.addEventListener('click', () => {
                 navigate(buildCatalogUrl({ c: [btn.dataset.catJump], p: 1 }));
             });
+        });
+
+        appMain.querySelectorAll('[data-lang-jump]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                navigate(buildCatalogUrl({ l: [btn.dataset.langJump], p: 1 }));
+            });
+        });
+
+        document.getElementById('copy-title-id-btn')?.addEventListener('click', async () => {
+            const btn = document.getElementById('copy-title-id-btn');
+            const icon = document.getElementById('copy-tid-icon');
+            const tid = g.titleId.toUpperCase();
+            try {
+                if (navigator.clipboard && window.isSecureContext) {
+                    await navigator.clipboard.writeText(tid);
+                } else {
+                    const ta = document.createElement('textarea');
+                    ta.value = tid;
+                    ta.style.position = 'fixed';
+                    ta.style.opacity = '0';
+                    document.body.appendChild(ta);
+                    ta.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(ta);
+                }
+                btn.classList.add('copied');
+                icon.textContent = 'check';
+                btn.title = t('detail.copied');
+                setTimeout(() => {
+                    btn.classList.remove('copied');
+                    icon.textContent = 'content_copy';
+                    btn.title = t('detail.copy_title_id');
+                }, 1600);
+            } catch (err) {
+                console.warn('Copy failed:', err);
+            }
         });
 
         document.getElementById('btn-edit-taxonomy')?.addEventListener('click', () => {
@@ -665,31 +727,24 @@
             });
         });
 
-        // Carousel logic
-        if (g.screenshots && g.screenshots.length > 0) {
-            let slideIdx = 0;
-            const mainImg = document.getElementById('carousel-main-img');
+        // Carousel & lightbox logic
+        let slideIdx = 0;
+        const mainImg = document.getElementById('carousel-main-img');
+        if (galleryImages.length > 1) {
             const setSlide = (idx) => {
-                slideIdx = (idx + g.screenshots.length) % g.screenshots.length;
-                mainImg.src = g.screenshots[slideIdx];
+                slideIdx = (idx + galleryImages.length) % galleryImages.length;
+                mainImg.src = galleryImages[slideIdx];
                 appMain.querySelectorAll('.carousel-thumb-btn').forEach((b, i) => b.classList.toggle('active', i === slideIdx));
             };
-            document.getElementById('carousel-prev').addEventListener('click', () => setSlide(slideIdx - 1));
-            document.getElementById('carousel-next').addEventListener('click', () => setSlide(slideIdx + 1));
+            document.getElementById('carousel-prev')?.addEventListener('click', () => setSlide(slideIdx - 1));
+            document.getElementById('carousel-next')?.addEventListener('click', () => setSlide(slideIdx + 1));
             appMain.querySelectorAll('.carousel-thumb-btn').forEach(b => {
                 b.addEventListener('click', () => setSlide(Number(b.dataset.slide)));
             });
-            mainImg.addEventListener('click', () => {
-                document.getElementById('lightbox-img').src = mainImg.src;
-                document.getElementById('lightbox-modal').classList.remove('hidden');
-            });
         }
-
-        // Read more toggle
-        document.getElementById('detail-read-more')?.addEventListener('click', (e) => {
-            const p = document.getElementById('detail-desc-text');
-            const isClamped = p.classList.toggle('clamped');
-            e.target.textContent = isClamped ? t('detail.read_more') : t('detail.read_less');
+        mainImg?.addEventListener('click', () => {
+            document.getElementById('lightbox-img').src = mainImg.src;
+            document.getElementById('lightbox-modal').classList.remove('hidden');
         });
 
         // Delete file handler
@@ -1332,6 +1387,11 @@
     document.getElementById('lightbox-modal').addEventListener('click', (e) => {
         if (e.target.id === 'lightbox-modal') {
             document.getElementById('lightbox-modal').classList.add('hidden');
+        }
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            document.getElementById('lightbox-modal')?.classList.add('hidden');
         }
     });
 
